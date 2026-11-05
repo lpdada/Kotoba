@@ -1,0 +1,57 @@
+name: Build unsigned IPA
+
+# 打 tag（v*）或手动触发，打出未签名的 .ipa，发到 Release 上。
+# 用户在 Windows 上用 Sideloadly + 免费 Apple ID 自签安装，每 7 天续签一次。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 查 Xcode 版本
+        run: xcodebuild -version
+
+      - name: 编译（不签名，真机）
+        run: |
+          xcodebuild -project Kotoba.xcodeproj \
+            -scheme Kotoba \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: 打包 .ipa
+        run: |
+          mkdir -p Payload
+          cp -r "build/Release-iphoneos/Kotoba.app" Payload/
+          zip -rq Kotoba-unsigned.ipa Payload
+          ls -lh Kotoba-unsigned.ipa
+
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kotoba-unsigned-ipa
+          path: Kotoba-unsigned.ipa
+          if-no-files-found: error
+
+      - name: 发 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" \
+            --title "Kotoba iOS 自签版" \
+            --notes "未签名的安装包。在 Windows 上用 Sideloadly + 你的免费 Apple ID 签名后安装到 iPhone，每 7 天续签一次。详见仓库 README。" \
+            Kotoba-unsigned.ipa
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

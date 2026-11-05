@@ -1,0 +1,694 @@
+import Foundation
+import SwiftUI
+
+/// Central state and use-cases for the app.
+///
+/// Views talk to this object only; it owns persistence, scheduling, ranking and
+/// the AI explainer selection.
+@MainActor
+final class AppModel: ObservableObject {
+    // MARK: Published state
+
+    @Published private(set) var isReady = false
+    @Published private(set) var bootstrapMessage = "正在准备词典…"
+
+    @Published var profile = UserProfile()
+    @Published var words: [SavedWord] = []
+    @Published var sentenceCards: [SentenceCard] = []
+    @Published var decks: [Deck] = [Deck.makeDefault()]
+    @Published var customClips: [Clip] = []
+    @Published var activity: [String: DayActivity] = [:]
+    @Published var watchHistory: [WatchRecord] = []
+    @Published var savedClipIDs: Set<String> = []
+    @Published var explanations: [String: WordExplanation] = [:]
+    @Published var metricsByClip: [String: ClipMetrics] = [:]
+    @Published var toast: String?
+    @Published var aiKeyStored = false
+
+    // MARK: Services
+
+    let store: PersistenceStore
+    let dictionary = DictionaryStore()
+    let library: ClipLibrary
+    let speech = SpeechService()
+    lazy var tokenizer = Tokenizer(dictionary: dictionary)
+    private(set) lazy var reviewSession = ReviewSessionModel(app: self)
+
+    private var saveTask: Task<Void, Never>?
+    private var pendingWatchRecords: [String: Double] = [:]
+
+    init(store: PersistenceStore = PersistenceStore()) {
+        self.store = store
+        self.library = ClipLibrary(store: store)
+    }
+
+    // MARK: Bootstrap
+
+    func bootstrap() async {
+        guard !isReady else { return }
+        bootstrapMessage = "正在准备词典…"
+        dictionary.loadBundled()
+
+        bootstrapMessage = "正在载入学习记录…"
+        let snapshot = store.load()
+        apply(snapshot)
+
+        bootstrapMessage = "正在整理素材…"
+        library.load(customClips: customClips)
+        refreshMetrics()
+        aiKeyStored = !(Secrets.value(for: Secrets.aiKeyAccount) ?? "").isEmpty
+        isReady = true
+    }
+
+    // MARK: Snapshot plumbing
+
+    private func apply(_ snapshot: AppSnapshot) {
+        profile = snapshot.profile
+        words = snapshot.words
+        sentenceCards = snapshot.sentenceCards
+        decks = snapshot.decks.isEmpty ? [Deck.makeDefault()] : snapshot.decks
+        customClips = snapshot.customClips
+        activity = snapshot.activity
+        watchHistory = snapshot.watchHistory
+        savedClipIDs = Set(snapshot.savedClipIDs)
+        explanations = snapshot.explanations
+    }
+
+    private func makeSnapshot() -> AppSnapshot {
+        var snapshot = AppSnapshot()
+        snapshot.profile = profile
+        snapshot.words = words
+        snapshot.sentenceCards = sentenceCards
+        snapshot.decks = decks
+        snapshot.customClips = customClips
+        snapshot.activity = activity
+        snapshot.watchHistory = Array(watchHistory.suffix(400))
+        snapshot.savedClipIDs = Array(savedClipIDs)
+        snapshot.explanations = explanations
+        snapshot.streakDayKeys = Array(activity.keys).sorted()
+        return snapshot
+    }
+
+    func scheduleSave() {
+        saveTask?.cancel()
+        let snapshot = makeSnapshot()
+        let store = self.store
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            do {
+                try store.save(snapshot)
+            } catch {
+                await MainActor.run { self?.toast = "保存失败：\(error.localizedDescription)" }
+            }
+        }
+    }
+
+    func flushSave() {
+        do {
+            try store.save(makeSnapshot())
+        } catch {
+            toast = "保存失败：\(error.localizedDescription)"
+        }
+    }
+
+    func updateProfile(_ mutate: (inout UserProfile) -> Void) {
+        var copy = profile
+        mutate(&copy)
+        profile = copy
+        scheduleSave()
+    }
+
+    // MARK: Word actions
+
+    func savedWord(id: String) -> SavedWord? {
+        words.first { $0.id == id }
+    }
+
+    func savedWord(forEntryID entryID: String) -> SavedWord? {
+        words.first { $0.id == entryID }
+    }
+
+    func isSaved(entryID: String) -> Bool {
+        words.contains { $0.id == entryID }
+    }
+
+    @discardableResult
+    func saveWord(
+        entry: DictEntry?,
+        surface: String,
+        sentence: String?,
+        clip: Clip?
+    ) -> SavedWord {
+        let identifier = entry?.id ?? ("surface:" + surface)
+        if let existing = words.first(where: { $0.id == identifier }) {
+            return existing
+        }
+        let defaultDeck = decks.first?.id ?? Deck.defaultDeckID
+        let word = SavedWord(
+            id: identifier,
+            word: entry?.word ?? surface,
+            reading: entry?.reading ?? "",
+            romaji: entry?.romaji ?? Kana.romaji(surface),
+            meanings: entry?.meanings ?? [],
+            level: entry?.level,
+            sourceClipID: clip?.id,
+            sourceSentence: sentence,
+            deckIDs: [defaultDeck]
+        )
+        words.insert(word, at: 0)
+        bumpToday { $0.newWords += 1 }
+        scheduleSave()
+        toast = "已加入生词本：\(word.word)"
+        return word
+    }
+
+    func removeWord(_ word: SavedWord) {
+        words.removeAll { $0.id == word.id }
+        scheduleSave()
+    }
+
+    func updateWord(_ word: SavedWord) {
+        guard let index = words.firstIndex(where: { $0.id == word.id }) else { return }
+        words[index] = word
+        scheduleSave()
+    }
+
+    func toggleIgnored(_ word: SavedWord) {
+        var copy = word
+        copy.isIgnored.toggle()
+        updateWord(copy)
+    }
+
+    /// Manually declare "I already know this" — graduates the card to a long interval.
+    func markKnown(_ word: SavedWord) {
+        var copy = word
+        copy.scheduling.intervalDays = max(copy.scheduling.intervalDays, 21)
+        copy.scheduling.learningStep = 0
+        copy.familiarity = max(copy.familiarity, 5)
+        copy.scheduling.dueAt = Date().addingTimeInterval(21 * 86_400)
+        copy.scheduling.reviewCount = max(copy.scheduling.reviewCount, 1)
+        updateWord(copy)
+        toast = "已标记为掌握：\(word.word)"
+    }
+
+    func setWordDecks(_ word: SavedWord, deckIDs: [String]) {
+        var copy = word
+        copy.deckIDs = deckIDs.isEmpty ? [Deck.defaultDeckID] : deckIDs
+        updateWord(copy)
+    }
+
+    // MARK: Sentence cards
+
+    @discardableResult
+    func saveSentence(text: String, translation: String, clip: Clip?) -> SentenceCard {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing = sentenceCards.first(where: { $0.text == trimmed }) {
+            return existing
+        }
+        let card = SentenceCard(text: trimmed, translation: translation, clipID: clip?.id)
+        sentenceCards.insert(card, at: 0)
+        scheduleSave()
+        toast = "已保存整句卡片"
+        return card
+    }
+
+    func removeSentence(_ card: SentenceCard) {
+        sentenceCards.removeAll { $0.id == card.id }
+        scheduleSave()
+    }
+
+    // MARK: Decks
+
+    func deck(for id: String) -> Deck? {
+        decks.first { $0.id == id }
+    }
+
+    @discardableResult
+    func createDeck(name: String, detail: String = "") -> Deck {
+        let deck = Deck(name: name.isEmpty ? "新分组" : name, detail: detail)
+        decks.append(deck)
+        scheduleSave()
+        return deck
+    }
+
+    func updateDeck(_ deck: Deck) {
+        guard let index = decks.firstIndex(where: { $0.id == deck.id }) else { return }
+        decks[index] = deck
+        scheduleSave()
+    }
+
+    func deleteDeck(_ deck: Deck) {
+        guard deck.id != Deck.defaultDeckID else {
+            toast = "默认分组不能删除"
+            return
+        }
+        decks.removeAll { $0.id == deck.id }
+        for index in words.indices {
+            words[index].deckIDs.removeAll { $0 == deck.id }
+            if words[index].deckIDs.isEmpty {
+                words[index].deckIDs = [Deck.defaultDeckID]
+            }
+        }
+        scheduleSave()
+    }
+
+    func wordCount(inDeck id: String) -> Int {
+        words.filter { $0.deckIDs.contains(id) }.count
+    }
+
+    // MARK: Review
+
+    func dueReviewCount(at date: Date = Date()) -> Int {
+        let wordsDue = words.filter { !$0.isIgnored && $0.scheduling.isDue(at: date) }.count
+        let sentencesDue = sentenceCards.filter { $0.scheduling.isDue(at: date) }.count
+        return wordsDue + sentencesDue
+    }
+
+    func newWordCount() -> Int {
+        words.filter { !$0.isIgnored && $0.scheduling.isNew }.count
+    }
+
+    func makeReviewQueue(includeNew: Bool = true, now: Date = Date()) -> [ReviewSessionModel.Item] {
+        var items: [ReviewSessionModel.Item] = []
+
+        let dueWords = words
+            .filter { !$0.isIgnored && !$0.scheduling.isNew && $0.scheduling.isDue(at: now) }
+            .sorted { $0.scheduling.dueAt < $1.scheduling.dueAt }
+        items += dueWords.prefix(profile.dailyReviewLimit).map { .init(kind: .word($0.id)) }
+
+        if includeNew {
+            let newWords = words
+                .filter { !$0.isIgnored && $0.scheduling.isNew }
+                .sorted { $0.createdAt > $1.createdAt }
+            items += newWords.prefix(profile.dailyNewWords).map { .init(kind: .word($0.id)) }
+        }
+
+        let dueSentences = sentenceCards
+            .filter { $0.scheduling.isDue(at: now) }
+            .prefix(12)
+        items += dueSentences.map { .init(kind: .sentence($0.id)) }
+
+        return items.shuffled()
+    }
+
+    func word(id: String) -> SavedWord? { words.first { $0.id == id } }
+    func sentence(id: String) -> SentenceCard? { sentenceCards.first { $0.id == id } }
+
+    func applyWordRating(_ rating: ReviewRating, wordID: String, now: Date = Date()) -> SavedWord? {
+        guard let index = words.firstIndex(where: { $0.id == wordID }) else { return nil }
+        let current = words[index]
+        let result = SpacedRepetition.review(
+            state: current.scheduling,
+            familiarity: current.familiarity,
+            rating: rating,
+            now: now
+        )
+        var updated = current
+        updated.scheduling = result.state
+        updated.familiarity = result.familiarity
+        words[index] = updated
+        recordReview(rating: rating)
+        return updated
+    }
+
+    func applySentenceRating(_ rating: ReviewRating, cardID: String, now: Date = Date()) -> SentenceCard? {
+        guard let index = sentenceCards.firstIndex(where: { $0.id == cardID }) else { return nil }
+        let current = sentenceCards[index]
+        let result = SpacedRepetition.review(
+            state: current.scheduling,
+            familiarity: current.familiarity,
+            rating: rating,
+            now: now
+        )
+        var updated = current
+        updated.scheduling = result.state
+        updated.familiarity = result.familiarity
+        sentenceCards[index] = updated
+        recordReview(rating: rating)
+        return updated
+    }
+
+    // MARK: Activity
+
+    var today: DayActivity {
+        activity[DayKey.key(for: Date())] ?? DayActivity(dayKey: DayKey.key(for: Date()))
+    }
+
+    private func bumpToday(_ mutate: (inout DayActivity) -> Void) {
+        let key = DayKey.key(for: Date())
+        var entry = activity[key] ?? DayActivity(dayKey: key)
+        mutate(&entry)
+        activity[key] = entry
+    }
+
+    func addStudySeconds(_ seconds: Double) {
+        guard seconds > 0 else { return }
+        bumpToday { $0.studiedSeconds += seconds }
+        scheduleSave()
+    }
+
+    func recordReview(rating: ReviewRating) {
+        bumpToday {
+            $0.reviews += 1
+            if rating == .again { $0.againCount += 1 }
+        }
+        scheduleSave()
+    }
+
+    func recordWatch(clip: Clip, seconds: Double, completed: Bool) {
+        let record = WatchRecord(
+            id: UUID().uuidString,
+            clipID: clip.id,
+            watchedAt: Date(),
+            seconds: seconds,
+            completed: completed
+        )
+        watchHistory.append(record)
+        if watchHistory.count > 400 {
+            watchHistory.removeFirst(watchHistory.count - 400)
+        }
+        if completed {
+            bumpToday { $0.clipsWatched += 1 }
+        }
+        scheduleSave()
+    }
+
+    var streakDays: Int {
+        var streak = 0
+        let calendar = Calendar.current
+        for offset in 0..<400 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { break }
+            let key = DayKey.key(for: day)
+            let entry = activity[key]
+            let studied = (entry?.studiedSeconds ?? 0) >= 60 || (entry?.reviews ?? 0) > 0
+            if studied {
+                streak += 1
+            } else if offset > 0 {
+                break
+            }
+        }
+        return streak
+    }
+
+    func activityRange(days: Int) -> [DayActivity] {
+        DayKey.daysBack(days).map { key in
+            activity[key] ?? DayActivity(dayKey: key)
+        }
+    }
+
+    var retention: Double {
+        let recent = activityRange(days: 30)
+        let total = recent.reduce(0) { $0 + $1.reviews }
+        let again = recent.reduce(0) { $0 + $1.againCount }
+        guard total > 0 else { return 0 }
+        return 1 - Double(again) / Double(total)
+    }
+
+    var minutesToday: Double { today.studiedSeconds / 60 }
+
+    var goalProgress: Double {
+        guard profile.dailyGoalSeconds > 0 else { return 0 }
+        return min(today.studiedSeconds / profile.dailyGoalSeconds, 1)
+    }
+
+    var familiarityCounts: [Int: Int] {
+        var counts: [Int: Int] = [1: 0, 2: 0, 3: 0, 4: 0, 5: 0]
+        for word in words where !word.isIgnored {
+            counts[word.familiarity, default: 0] += 1
+        }
+        return counts
+    }
+
+    var knownWordCount: Int {
+        words.filter { !$0.isIgnored && $0.familiarity >= 4 }.count
+    }
+
+    var learningWordCount: Int {
+        words.filter { !$0.isIgnored && $0.familiarity <= 3 }.count
+    }
+
+    var knownLemmas: Set<String> {
+        Set(words.filter { !$0.isIgnored }.map(\.word))
+    }
+
+    var achievements: [Achievement] {
+        let totalWords = words.count
+        let learned = knownWordCount
+        let reviews = activity.values.reduce(0) { $0 + $1.reviews }
+        let clips = Set(watchHistory.map(\.clipID)).count
+        let streak = streakDays
+        return [
+            Achievement(
+                id: "first_word",
+                title: "第一颗种子",
+                detail: "保存第一个生词",
+                symbol: "leaf",
+                isUnlocked: totalWords >= 1,
+                progressText: "\(min(totalWords, 1))/1"
+            ),
+            Achievement(
+                id: "twenty_five",
+                title: "词汇小站",
+                detail: "生词本累计 25 个词",
+                symbol: "square.stack.3d.up",
+                isUnlocked: totalWords >= 25,
+                progressText: "\(min(totalWords, 25))/25"
+            ),
+            Achievement(
+                id: "hundred_reviews",
+                title: "复习一百次",
+                detail: "完成 100 次闪卡评分",
+                symbol: "arrow.triangle.2.circlepath",
+                isUnlocked: reviews >= 100,
+                progressText: "\(min(reviews, 100))/100"
+            ),
+            Achievement(
+                id: "streak_seven",
+                title: "连续七天",
+                detail: "连续 7 天学习",
+                symbol: "flame",
+                isUnlocked: streak >= 7,
+                progressText: "\(min(streak, 7))/7"
+            ),
+            Achievement(
+                id: "clip_explorer",
+                title: "素材探索者",
+                detail: "看过 10 条不同片段",
+                symbol: "film.stack",
+                isUnlocked: clips >= 10,
+                progressText: "\(min(clips, 10))/10"
+            ),
+            Achievement(
+                id: "mastery",
+                title: "掌握二十",
+                detail: "20 个词达到“熟悉”以上",
+                symbol: "checkmark.seal",
+                isUnlocked: learned >= 20,
+                progressText: "\(min(learned, 20))/20"
+            )
+        ]
+    }
+
+    // MARK: Feed
+
+    func metrics(for clip: Clip) -> ClipMetrics {
+        library.metrics(for: clip, tokenizer: tokenizer)
+    }
+
+    private func refreshMetrics() {
+        var result: [String: ClipMetrics] = [:]
+        for clip in library.clips {
+            result[clip.id] = library.metrics(for: clip, tokenizer: tokenizer)
+        }
+        metricsByClip = result
+    }
+
+    func feedContext() -> FeedRanker.Context {
+        var counts: [String: Int] = [:]
+        for record in watchHistory {
+            counts[record.clipID, default: 0] += 1
+        }
+        return FeedRanker.Context(
+            profile: profile,
+            metrics: metricsByClip,
+            watchCounts: counts,
+            savedClipIDs: savedClipIDs,
+            knownLemmas: knownLemmas
+        )
+    }
+
+    func rankedFeed() -> [Clip] {
+        guard !library.clips.isEmpty else { return [] }
+        return FeedRanker.ranked(library.clips, context: feedContext())
+    }
+
+    func toggleSavedClip(_ clip: Clip) {
+        if savedClipIDs.contains(clip.id) {
+            savedClipIDs.remove(clip.id)
+            toast = "已取消收藏片段"
+        } else {
+            savedClipIDs.insert(clip.id)
+            toast = "已收藏片段"
+        }
+        scheduleSave()
+    }
+
+    // MARK: Explanations
+
+    private func explanationKey(word: String, sentence: String) -> String {
+        word + "␟" + sentence
+    }
+
+    func cachedExplanation(word: String, sentence: String) -> WordExplanation? {
+        explanations[explanationKey(word: word, sentence: sentence)]
+    }
+
+    func invalidateExplanation(word: String, sentence: String) {
+        explanations.removeValue(forKey: explanationKey(word: word, sentence: sentence))
+        scheduleSave()
+    }
+
+    func explain(word: String, sentence: String, entry: DictEntry?) async -> WordExplanation {
+        let key = explanationKey(word: word, sentence: sentence)
+        if let cached = explanations[key] { return cached }
+
+        let explainer: ContextExplaining
+        if profile.aiEnabled {
+            let config = AIConfiguration(
+                baseURL: profile.aiBaseURL,
+                model: profile.aiModel,
+                apiKey: Secrets.value(for: Secrets.aiKeyAccount) ?? ""
+            )
+            if config.isConfigured {
+                explainer = RemoteLLMExplainer(configuration: config, language: profile.aiLanguage)
+            } else {
+                explainer = LocalContextExplainer(tokenizer: tokenizer, dictionary: dictionary)
+            }
+        } else {
+            explainer = LocalContextExplainer(tokenizer: tokenizer, dictionary: dictionary)
+        }
+
+        do {
+            let result = try await explainer.explain(word: word, sentence: sentence, entry: entry)
+            explanations[key] = result
+            scheduleSave()
+            return result
+        } catch {
+            var fallback = try? await LocalContextExplainer(tokenizer: tokenizer, dictionary: dictionary)
+                .explain(word: word, sentence: sentence, entry: entry)
+            if fallback == nil {
+                fallback = WordExplanation(
+                    headline: "解释失败：\(error.localizedDescription)",
+                    grammar: "",
+                    nuance: "",
+                    source: "本地语法分析",
+                    createdAt: Date(),
+                    isRemote: false
+                )
+            }
+            let value = fallback!
+            explanations[key] = value
+            scheduleSave()
+            return value
+        }
+    }
+
+    // MARK: AI key
+
+    func saveAIKey(_ key: String) {
+        Secrets.set(key.trimmingCharacters(in: .whitespacesAndNewlines), for: Secrets.aiKeyAccount)
+        aiKeyStored = !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if aiKeyStored {
+            updateProfile { $0.aiEnabled = true }
+            toast = "已保存 AI 密钥"
+        } else {
+            updateProfile { $0.aiEnabled = false }
+            toast = "已清除 AI 密钥"
+        }
+    }
+
+    // MARK: Content import
+
+    func importClips(from url: URL) throws -> Int {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        let collection = try decoder.decode(ClipCollection.self, from: data)
+        var imported: [Clip] = []
+        for original in collection.clips {
+            var copy = original
+            copy.custom = true
+            if customClips.contains(where: { $0.id == copy.id }) {
+                copy = Clip(
+                    id: copy.id + "-" + String(UUID().uuidString.prefix(4)),
+                    title: copy.title,
+                    series: copy.series,
+                    episode: copy.episode,
+                    transcript: copy.transcript,
+                    translation: copy.translation,
+                    translationEN: copy.translationEN,
+                    level: copy.level,
+                    topics: copy.topics,
+                    durationSeconds: copy.durationSeconds,
+                    media: copy.media,
+                    attribution: copy.attribution,
+                    custom: true
+                )
+            }
+            imported.append(copy)
+        }
+        customClips.append(contentsOf: imported)
+        library.setCustom(customClips)
+        refreshMetrics()
+        scheduleSave()
+        return imported.count
+    }
+
+    func removeCustomClip(_ clip: Clip) {
+        customClips.removeAll { $0.id == clip.id }
+        library.removeCustom(id: clip.id)
+        refreshMetrics()
+        scheduleSave()
+    }
+
+    func copyMediaFile(from url: URL) throws -> String {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let destination = store.mediaURL(named: url.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.copyItem(at: url, to: destination)
+        return url.lastPathComponent
+    }
+
+    // MARK: Data management
+
+    func exportState() -> URL? {
+        flushSave()
+        do {
+            return try store.exportJSON(makeSnapshot())
+        } catch {
+            toast = "导出失败：\(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func resetEverything() {
+        words.removeAll()
+        sentenceCards.removeAll()
+        customClips.removeAll()
+        activity.removeAll()
+        watchHistory.removeAll()
+        savedClipIDs.removeAll()
+        explanations.removeAll()
+        decks = [Deck.makeDefault()]
+        profile = UserProfile(displayName: profile.displayName, onboardingCompleted: false)
+        library.setCustom([])
+        store.reset()
+        flushSave()
+        toast = "已清空本地数据"
+    }
+}

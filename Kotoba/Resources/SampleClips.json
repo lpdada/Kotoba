@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "clips": [
+    {
+      "id": "sample-conbini",
+      "title": "便利店的三个来回",
+      "series": "生活场景",
+      "episode": "第 1 段",
+      "transcript": "すみません、これ、ください。\nはい、二百円です。\nカードで払えますか。\nええ、大丈夫です。",
+      "translation": "不好意思，请给我这个。\n好的，两百日元。\n可以刷卡吗？\n嗯，可以的。",
+      "translation_en": "",
+      "level": "n5",
+      "topics": [
+        "日常会话"
+      ],
+      "duration_seconds": 14,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-class",
+      "title": "下课以后",
+      "series": "校园日常",
+      "episode": "第 1 段",
+      "transcript": "今日の授業、難しかったね。\nうん、でも先生は親切だった。\n宿題、もう終わった？\nまだ、半分だけ。",
+      "translation": "今天的课好难啊。\n嗯，不过老师人很好。\n作业写完了吗？\n还没，只写了一半。",
+      "translation_en": "",
+      "level": "n5",
+      "topics": [
+        "校园",
+        "日常会话"
+      ],
+      "duration_seconds": 13,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-train",
+      "title": "换乘问路",
+      "series": "旅行日语",
+      "episode": "第 2 段",
+      "transcript": "この電車は東京に行きますか。\nいいえ、新宿までです。\nじゃあ、乗り換えはどこですか。\n次の駅で乗り換えてください。",
+      "translation": "这趟电车到东京吗？\n不，只到新宿。\n那要在哪里换乘？\n请在下一站换乘。",
+      "translation_en": "",
+      "level": "n4",
+      "topics": [
+        "旅行"
+      ],
+      "duration_seconds": 15,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-weekend",
+      "title": "周末计划",
+      "series": "恋爱日常",
+      "episode": "第 3 段",
+      "transcript": "週末、どこか行きたい？\n海が見たい。\nじゃあ、土曜日に車で行こう。\n天気がいいといいね。",
+      "translation": "周末想去哪儿吗？\n我想看海。\n那周六开车去吧。\n天气好就好了。",
+      "translation_en": "",
+      "level": "n4",
+      "topics": [
+        "恋爱",
+        "日常会话"
+      ],
+      "duration_seconds": 12,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-meeting",
+      "title": "下午三点的会议",
+      "series": "职场日语",
+      "episode": "第 1 段",
+      "transcript": "会議は三時からです。\n資料はもう準備しましたか。\nまだです。今から作ります。\nお願いします。終わったら見せてください。",
+      "translation": "会议三点开始。\n资料准备好了吗？\n还没有，我现在做。\n拜托了，做完给我看一下。",
+      "translation_en": "",
+      "level": "n3",
+      "topics": [
+        "职场"
+      ],
+      "duration_seconds": 16,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-window",
+      "title": "开着的窗",
+      "series": "悬疑短句",
+      "episode": "第 4 段",
+      "transcript": "あれ、窓が開いている。\n誰か来たのかな。\n鍵はかけてあったはずだよ。\nちょっと見てくる。",
+      "translation": "咦，窗户开着。\n是不是有人来过？\n明明锁好了才对。\n我去看一下。",
+      "translation_en": "",
+      "level": "n3",
+      "topics": [
+        "悬疑"
+      ],
+      "duration_seconds": 13,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-ramen",
+      "title": "这家的拉面",
+      "series": "美食闲聊",
+      "episode": "第 2 段",
+      "transcript": "この店のラーメン、すごくおいしいよ。\nスープが濃すぎない？\nちょうどいいよ。麺も強い。\nまた来たいね。",
+      "translation": "这家的拉面特别好吃。\n汤会不会太浓？\n刚刚好，面也很有嚼劲。\n还想再来。",
+      "translation_en": "",
+      "level": "n3",
+      "topics": [
+        "美食"
+      ],
+      "duration_seconds": 14,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-time",
+      "title": "时间不够用",
+      "series": "情绪表达",
+      "episode": "第 5 段",
+      "transcript": "最近、時間が足りない気がする。\n何かに追われている感じ？\nそう。でも、好きなことは続けたい。\n無理しないでね。",
+      "translation": "最近总觉得时间不够用。\n像被什么追着跑一样？\n对。不过喜欢的事还是想坚持下去。\n别太勉强自己。",
+      "translation_en": "",
+      "level": "n2",
+      "topics": [
+        "动画",
+        "日常会话"
+      ],
+      "duration_seconds": 15,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-morning",
+      "title": "早上很冷",
+      "series": "生活场景",
+      "episode": "第 2 段",
+      "transcript": "おはよう。\nおはよう、今日は寒いね。\nうん、コートを着てきた。\n風邪をひかないでね。",
+      "translation": "早。\n早，今天好冷啊。\n嗯，我把大衣穿来了。\n别感冒了。",
+      "translation_en": "",
+      "level": "n5",
+      "topics": [
+        "日常会话"
+      ],
+      "duration_seconds": 11,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    },
+    {
+      "id": "sample-rain",
+      "title": "只有一把伞",
+      "series": "雨天片段",
+      "episode": "第 3 段",
+      "transcript": "雨が降りそうだね。\n傘、持ってる？\n一つだけ。\nじゃあ、一緒に入ろう。",
+      "translation": "好像要下雨了。\n带伞了吗？\n只带了一把。\n那就一起撑吧。",
+      "translation_en": "",
+      "level": "n4",
+      "topics": [
+        "恋爱",
+        "日常会话"
+      ],
+      "duration_seconds": 12,
+      "media": {
+        "kind": "generated"
+      },
+      "attribution": "原创示例台词（应用自带）",
+      "custom": false
+    }
+  ]
+}
