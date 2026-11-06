@@ -311,6 +311,8 @@ struct VocabularyView: View {
 struct WordRow: View {
     let word: SavedWord
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
