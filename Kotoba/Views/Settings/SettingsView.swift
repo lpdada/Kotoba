@@ -185,14 +185,6 @@ struct SettingsView: View {
 
     // MARK: Voice
 
-    /// What the mode picker shows: the stored choice when the user picked one,
-    /// otherwise the mode the engine would actually use. It must NOT be the
-    /// normalised effective mode: that maps server-without-an-address back to
-    /// direct Edge, which made the picker look stuck on the first row.
-    private var selectedMode: ReadAloudMode {
-        app.voiceOptions.mode ?? app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL)
-    }
-
     private var voiceSection: some View {
         Section {
             Picker("朗读方式", selection: Binding(
@@ -205,20 +197,20 @@ struct SettingsView: View {
             }
 
             if selectedMode == .server {
-                TextField("朗读服务器，例如 https://asr.ysloving.com（留空则复用转写地址）", text: Binding(
+                TextField("朗读服务器（留空则复用转写地址）", text: Binding(
                     get: { app.voiceOptions.serverURL },
                     set: { value in app.updateVoiceOptions { $0.serverURL = value } }
                 ))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .accessibilityLabel(Text("朗读服务器地址"))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .accessibilityLabel(Text("朗读服务器地址"))
                 HStack {
-                    Text("当前使用：\(effectiveReadAloudServer)")
+                    Spacer()
+                    Text(effectiveReadAloudServer)
                         .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
-                    Spacer()
                 }
             }
 
@@ -236,8 +228,8 @@ struct SettingsView: View {
                     get: { app.voiceOptions.customVoiceID },
                     set: { value in app.updateVoiceOptions { $0.customVoiceID = value } }
                 ))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
             }
 
             HStack {
@@ -256,6 +248,14 @@ struct SettingsView: View {
         } footer: {
             Text("三种方式都只发送要朗读的文本，不附带账号或学习记录。「服务器合成」会请求你自己的 edge-tts 代理（POST /tts），地址留空时复用「云端转写」里填的服务器；「Edge 直连」由本机直接请求 Microsoft，被其反滥用校验拒绝时自动改用系统语音；任何失败都不会弹窗打断学习。")
         }
+    }
+
+    /// The picker must show what the user chose, not the normalised engine mode:
+    /// a stored `.server` with an empty address still reads as "server" here so
+    /// the row stays selected and the address field stays visible.
+    private var selectedMode: ReadAloudMode {
+        if let stored = app.voiceOptions.mode { return stored }
+        return app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL)
     }
 
     private var effectiveReadAloudServer: String {
@@ -337,6 +337,7 @@ struct SettingsView: View {
                 get: { app.transcription.serverURL },
                 set: { value in
                     app.updateTranscription { $0.serverURL = value }
+                    // Editing the address invalidates the previous connectivity result.
                     transcriptionTestResult = nil
                 }
             ))
@@ -346,6 +347,7 @@ struct SettingsView: View {
                 .accessibilityLabel(Text("转写服务器地址"))
 
             HStack {
+                Spacer()
                 Text(app.transcription.statusLabel)
                     .font(Theme.font(size: 11))
                     .foregroundStyle(app.transcription.isConfigured ? Theme.jade : Theme.secondaryText)

@@ -25,11 +25,10 @@ struct TranscriptionSettings: Codable, Hashable {
 
     static let disabled = TranscriptionSettings()
 
-    /// Trimmed address without a trailing slash.
+    /// Trimmed address without a trailing slash; a scheme-less host becomes HTTPS.
     var normalizedServerURL: String {
         var value = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while value.hasSuffix("/") { value.removeLast() }
-        // Users type bare hostnames (asr.ysloving.com); assume https.
         if !value.isEmpty, !value.contains("://") { value = "https://" + value }
         return value
     }

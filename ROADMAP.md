@@ -227,3 +227,93 @@
 - **1000 字上限**：`TextChunker` 按句读把长文本切成 ≤1000 字的段，`SpeechService` 逐段合成后顺序播放（缓存键按段计算）；单段仍超限时 `ServerTTSService` 在发请求前就拦截。
 - **默认地址**：`ServerDefaults.baseURL = https://asr.ysloving.com` 作为「云端转写」地址的默认值，朗读模式因此默认解析为「服务器合成」；清空即退回 Edge 直连。地址只是主机名，无令牌。
 - **禁用语义收紧**：`TranscriptionClient` 现在先看 `isEnabled`，关闭时不会发出任何请求（地址预填也不会）。
+
+### 12.8 v0.8.0 真机问题修复（同轮）
+
+- **选择框卡在第一项**：`SettingsView` 的 Picker 之前绑定的是归一化后的 `effectiveMode`；没有地址时 `.server` 被归一成 `.edgeDirect`，于是勾选回到「Edge 直连」，点「服务器合成」看起来没反应，试听走系统语音。改为新增 `selectedMode`（有存储值就用存储值，否则用 `effectiveMode`），Picker 的 get 与地址输入框的显示条件都用它；set 仍然写回 `voiceOptions.mode`。引擎内部（`reconfigureSpeech`）继续用 `effectiveMode` 做归一化，不变。
+- **老用户拿不到预填地址**：v0.7.0 存档里没有 `voiceOptions` 且转写地址为空字符串，导致预填的默认地址从未生效。`AppModel.apply` 中新增一次性迁移：仅当「存档无 `voiceOptions`」且「转写地址为空」时填入 `ServerDefaults.baseURL`，并在 bootstrap 末尾持久化一次；0.8.0 之后用户主动清空的地址不受影响（那时存档已有 `voiceOptions`）。判定逻辑抽成可测的 `AppModel.shouldMigrateServerAddress(archivedVoiceOptions:transcriptionURL:)`，由 4 条断言覆盖。
+
+### 12.9 验证轮（断言发现的问题）
+
+- 新增断言覆盖：语法分析（`LocalContextExplainer` 的助词/词形/敬体输出）、汉字等级分组与搜索、复习调度上下界、v0.7 形态存档解码与迁移、以及 §12.8 的两个修复。
+- **发现并修复**：拼音搜索此前区分声调（数据是 `rì`，用户输入 `ri` 搜不到）。`KanjiStore.search` 现在对查询与拼音都做去声调/忽略大小写折叠；断言同时覆盖 `ri`、`rì`、`RI`。
+- 新增 `Tools/check_source_invariants.py`：在没有 Xcode 的机器上结构化确认「Picker 绑定 selectedMode」「迁移已接入 apply」「网络客户端不含鉴权头/密钥」，由 `verify_logic.sh` 调用。
+
+## 13. 语法说明（本地规则引擎）
+
+> 更正（后续轮次）：项目里现在**已有**语法数据集 `Grammar.json`（526 条，OpenJLPT，CC BY-SA 4.0），见 §14。本节描述的是**点词时的上下文解释**，两者并存：数据集负责「有哪些句型、属于哪一级」，规则引擎负责「这句话里的这个词为什么这样变」。
+
+### 13.1 上下文解释来自规则引擎，不是查表
+
+点开一个词时看到的「语法」段落由 `LocalContextExplainer` 在本地实时生成（不查句型表），输入只有三样：
+
+| 输入 | 来源 |
+| --- | --- |
+| 分词与词形（lemma / formation / 助词） | `Tokenizer` + `Deinflector`（60+ 条活用规则，带词典校验） |
+| 词义、词性、JLPT 等级、例句 | 打包的 `Dictionary.json`（11,794 条：OpenJLPT + JMdict 常用词 + 片假名外来语） |
+| 汉字音训、释义、中文注解 | 打包的 `Kanji.json`（KANJIDIC2 子集，2,387 字） |
+
+所以「语法解析」在本项目里 = **对一句真实字幕做形态与句法角色的现场判断**，而不是查表。
+
+### 13.2 它实际会说什么
+
+`WordExplanation.grammar` 的组成（按出现顺序，条件触发）：
+
+1. `原形是「見る」，这里用了敬体・过去。` —— 词形还原 + 活用形名称；
+2. `后面跟着助词「を」，把「映画」标记为宾语。` —— 后置助词及其格角色；
+3. `它接在助词「に」之后，和前面的成分构成地点关系。` —— 前置助词的角色；
+4. `整句是敬体（です・ます），适合对不熟的人说。` / `整句是常体（だ・である）…` —— 句子语体判断；
+5. 动词额外提示「和助词的搭配会改变意思」。
+
+`source` 字段标明引擎：本地引擎返回「本地语法分析」；填了 AI 配置时由远端模型返回（`source` 为模型名）。
+
+### 13.3 等级分组与搜索（现有数据）
+
+| 分组 | N5 | N4 | N3 | N2/N1 | 其他已标注 | 未分级 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 汉字（2,387） | 80 | 160 | 200 | 202 | 193 + 191 + 1,110 | 251 |
+| 词条（11,794） | 674 | 630 | 1,659 | 1,778 | — | 3,983（N1 3,070 另计） |
+
+汉字搜索支持：字面、音读、训读（平假名归一）、中文释义、英文释义、**拼音（去声调、忽略大小写）**。
+
+### 13.4 覆盖不到的（诚实说明）
+
+- **没有语法点库**：被动、使役、条件形、授受等「句型」不会被单独列为条目并标注等级；`Deinflector` 只能识别活用形态并给出原形与形名。
+- **依赖分词质量**：分词错了，助词角色也会错；规则引擎不认识省略、倒装、方言。
+- **没有分级语法大纲**：无法回答「N4 该学哪些语法点」。
+- **展望**：若要真正的语法层，需要引入带许可的语法点数据（如 JLPT 语法表），并为每点写判定规则/例句；本轮只做验证与文档，不引入第三方数据。
+
+### 13.5 本轮验证覆盖
+
+- 语法引擎：有解释、点名助词角色（`助词「を」` + `宾语`）、判断敬体/常体、对活用词给出「原形是…」、`source` 为「本地语法分析」。
+- 分组与搜索：分组计数之和等于 2,387；字面优先；训读/释义/拼音（`ri`、`rì`、`RI`）都能命中「日」；素材库按等级筛选。
+- 复习调度：间隔上限、ease 上下界、新卡 1 分钟阶梯。
+- 老存档：v0.7 形态存档可解码、无 `voiceOptions`、触发地址迁移。
+- 两个 v0.8.0 修复：`Tools/check_source_invariants.py` 结构化确认（见 §12.8/§12.9）。
+
+## 14. 语法层：数据集、浏览与状态（本轮）
+
+### 14.1 已实现
+
+| 部分 | 内容 |
+| --- | --- |
+| 数据 | `Kotoba/Resources/Grammar.json`：**526 条**（N5 81 / N4 98 / N3 101 / N2 123 / N1 123），来自 OpenJLPT `data/json/grammar/n1..n5.json`，commit `bf4e1eec…`，CC BY-SA 4.0；中文策略为 `meaning_zh = null`、`zh_status = en-fallback`（英文原文照录，不机翻） |
+| 构建 | `Tools/build_grammar.py`：固定 commit 拉取 → 字段改名 → 去重 → 写 `counts`/`total`；幂等（除 `generatedAt` 外重跑完全一致） |
+| 模型 | `GrammarModels.swift`：`GrammarEntry` / `GrammarExample` / `GrammarFile` / `GrammarStatus` / `GrammarProgress` |
+| 存储 | `GrammarStore`：载入、按等级分组与计数、搜索（句型/罗马字/接续/英文/标签）、`related(to:)`、状态与 `install(progress:)`（纠正失效 id） |
+| 界面 | 个人页「语法」→ `GrammarBrowseView`（等级筛选 + 搜索 + 详情 sheet：接续、说明、例句、相关语法、朗读、学习状态切换）；`ProgressScreen` 新增「语法」统计卡（已学会 / 学习中 / 未标记） |
+| 持久化 | `AppSnapshot.grammarProgress`（可选字段，旧存档仍可解码，缺失即视为空进度） |
+
+### 14.2 未实现，以及原因
+
+- **语法 SM-2 复习调度：没有做。** 没有间隔/到期日计算，也没有把语法加入复习队列。原因：现有 `ReviewSession` 的记录模型是**按单词/汉字 id 键控**的（`savedWord` / `sentenceCards` / `kanjiCards`），`SchedulingState` 通过它们间接挂载；本会话**没有实现 GrammarCard 类型**，也没有给 `ReviewSession.Item` 加 `kind: .grammar`。硬塞进现有队列会破坏「复习记录 ↔ 卡片」的一一对应，所以留到有明确卡片模型时再做。
+- **词典/字幕跳转到语法详情：没有做。** 这是**下一步**：在点词卡片里按句型匹配（例如看到「〜ている」就链接到对应语法条目），需要先做句型到文本的匹配规则，避免误命中。
+- **中文释义：不做机翻。** 上游只有英文，`meaning_zh` 保持 null 并在界面标注「英文原文」。
+
+### 14.3 文档中的版本修复记录
+
+- **v0.8.0 修复（已在 §12.8 记录）**：朗读方式选择框改为绑定「用户实际选中的模式」（此前用归一化后的 `effectiveMode`，未填地址时 `.server` 被归一成 `.edgeDirect`，勾选卡在第一行）；新增一次性升级迁移，为无 `voiceOptions` 且转写地址为空的旧存档补上默认地址。
+- **v0.8.1 修复（本轮一并记录，版本号尚未 bump）**：
+  - 转写地址输入改为**直接绑定** `app.transcription.serverURL`，setter 内清空「测试连接」结果；朗读服务器、自定义语音 ID 同样改为直接绑定，删掉 `commit*` 辅助函数与「保存」按钮。
+  - `ServerTTSService.endpointURL` 与 `TranscriptionSettings.normalizedServerURL` 在去空白/去尾斜杠后，若地址不含 `://` 则补 `https://`（显式 `http://` 保留）。
+  - 语法进度恢复时按当前数据集**剔除失效 id**（595 → 526 的换源遗留），但数据集未载入时不剔除，避免误清空。

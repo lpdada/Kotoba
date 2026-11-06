@@ -33,6 +33,31 @@
 - 不含 Kiku（kikulang.com）或任何其他产品的品牌名、图标、文案、配色或界面资产。
 - `SampleClips.json` 中的 10 条示例台词为本项目原创的日语对话与中文翻译，仅用于演示交互，随代码以 MIT 发布。
 
+## 语法数据（Grammar.json）
+
+`Kotoba/Resources/Grammar.json` 由 `Tools/build_grammar.py` 从 **OpenJLPT** 生成，共 **526 条分级语法点**。
+
+- **上游来源**：[`evanclan/OpenJLPT`](https://github.com/evanclan/OpenJLPT) 的 `data/json/grammar/n1.json` `n2.json` `n3.json` `n4.json` `n5.json`。
+- **固定版本**：commit `bf4e1eecd5d11406aaecdee910464507aef7fcdc`（`n5.json` 于 2026-09-30 提交），构建脚本从该 commit 取原始文件，保证可复现。
+- **上游许可证**：**CC BY-SA 4.0**（仓库 LICENSE 即 CC BY-SA 4.0 全文，与本项目 `Dictionary.json` 的发布方式一致）。`Grammar.json` 作为衍生数据集同样以 **CC BY-SA 4.0** 发布；代码本体仍是 MIT。
+
+| 等级 | N5 | N4 | N3 | N2 | N1 | 合计 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 条数 | 81 | 98 | 101 | 123 | 123 | **526** |
+
+- **做了哪些变换**：只做字段选取与改名（`meaning` → `meaning_en`、`notes` → `notes_en`），保留 `pattern` / `romaji` / `formation` / `tags` / `examples`（每条最多 3 个例句），去重，并附加 `counts` 汇总。**没有改写任何英文释义，没有增删语法点，没有改动等级标注。**
+
+### 中文释义的处理（诚实说明）
+
+- OpenJLPT 只提供**英文释义与英文例句翻译**，没有中文原文；词表侧（OpenJLPT / JMdict 体系）同样只有英文。
+- 因此按「能拿到可靠原文就用原文，不确定就保留英文并标注」的原则：**526 条全部 `meaning_zh = null`、`zh_status = "en-fallback"`**，界面应显示英文原文并标注「英文原文」。**不机翻、不猜译。**
+- 需要中文时逐条人工核对后写入 `meaning_zh` 并把 `zh_status` 改为 `checked`；本仓库目前 **0 条** 完成该步骤。
+- 这与汉字数据里「中文只覆盖人工核对的 284 字（N5 103/103、N4 181/181）」是同一套原则。
+
+### 尚未接入的部分
+
+- `Grammar.json` 目前**只是数据文件**：本轮没有改 `Kotoba.xcodeproj`（资源清单未更新）、没有改任何 Swift 代码，应用暂不会加载它。接入需要重新生成工程并新增 `GrammarStore` + 界面。
+
 ## 汉字数据（Kanji.json）
 
 `Kotoba/Resources/Kanji.json` 由 `Tools/build_kanji.py` 从 KANJIDIC2 生成，覆盖**常用漢字（学年 1–6、8）∪ 带 JLPT 标记**的 2,387 字，字段为：

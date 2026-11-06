@@ -111,16 +111,23 @@ final class KanjiStore {
             .sorted { $0.count > $1.count }
     }
 
+    /// Case- and tone-insensitive comparison for pinyin queries.
+    static func fold(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+
     func search(_ query: String, limit: Int = 80) -> [KanjiEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let lowered = trimmed.lowercased()
+        // Pinyin is stored with tone marks ("rì"), but keyboards produce "ri".
+        let foldedQuery = Self.fold(trimmed)
         let kanaQuery = Kana.hiraganized(trimmed)
         var scored: [(entry: KanjiEntry, score: Int)] = []
         for entry in entries {
             var score = 0
             if entry.literal == trimmed { score = 200 }
-            else if entry.pinyin.contains(lowered) { score = 120 }
+            else if Self.fold(entry.pinyin).contains(foldedQuery) { score = 120 }
             else if entry.onReadings.contains(where: { Kana.hiraganized($0).contains(kanaQuery) }) { score = 100 }
             else if entry.kunReadings.contains(where: { Kana.hiraganized($0).contains(kanaQuery) }) { score = 90 }
             else if entry.chineseGloss.contains(trimmed) { score = 80 }

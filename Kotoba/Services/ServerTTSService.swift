@@ -59,12 +59,12 @@ final class ServerTTSService {
 
     // MARK: Request
 
-    /// Accepts `https://host`, `https://host/` or a full `…/tts`.
+    /// Accepts `https://host`, `https://host/`, a scheme-less `host`, or a full `…/tts`.
     var endpointURL: URL? {
         var base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while base.hasSuffix("/") { base.removeLast() }
         guard !base.isEmpty else { return nil }
-        // Users type bare hostnames (asr.ysloving.com); assume https.
+        // A bare host is the common typo; default to HTTPS instead of failing.
         if !base.contains("://") { base = "https://" + base }
         if !base.lowercased().hasSuffix("/tts") { base += "/tts" }
         guard let url = URL(string: base),

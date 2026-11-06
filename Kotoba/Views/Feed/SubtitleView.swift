@@ -122,7 +122,7 @@ struct SubtitleTokenView: View {
         }
     }
 
-    static func tokenLabel(_ token: ClipToken, familiarity: Int?) -> String {
+    fileprivate static func tokenLabel(_ token: ClipToken, familiarity: Int?) -> String {
         var parts = [token.text]
         if let reading = token.reading, reading != token.text { parts.append("读音 \(reading)") }
         if let formation = token.formation { parts.append(formation) }

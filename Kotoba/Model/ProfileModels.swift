@@ -146,6 +146,8 @@ struct AppSnapshot: Codable {
     var transcription: TranscriptionSettings?
     /// Optional: added with the Edge TTS voice options.
     var voiceOptions: VoiceOptions?
+    /// Optional: added with the grammar browse layer.
+    var grammarProgress: GrammarProgress?
 }
 
 // MARK: - Review load forecast

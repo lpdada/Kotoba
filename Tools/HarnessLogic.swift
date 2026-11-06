@@ -694,6 +694,18 @@ struct HarnessLogic {
         full.serverURL = "https://asr.example.test/transcribe"
         check("full endpoint kept as is", full.endpointURL?.absoluteString == "https://asr.example.test/transcribe")
 
+        print("\n== scheme-defaulting ==")
+        let schemeLess = TranscriptionSettings(isEnabled: true, serverURL: "  asr.example.test//  ", timeoutSeconds: 90, translateToChinese: true)
+        check("scheme-less transcription address gains https", schemeLess.normalizedServerURL == "https://asr.example.test", schemeLess.normalizedServerURL)
+        check("scheme-less address still reaches /transcribe", schemeLess.endpointURL?.absoluteString == "https://asr.example.test/transcribe")
+        let explicitHTTP = TranscriptionSettings(isEnabled: true, serverURL: "http://asr.example.test", timeoutSeconds: 90, translateToChinese: true)
+        check("an explicit http scheme is preserved", explicitHTTP.normalizedServerURL == "http://asr.example.test")
+        let schemeLessServer = ServerTTSService(baseURL: " asr.example.test/ ", send: { _ in (Data(), 200) })
+        check("scheme-less read-aloud address gains https", schemeLessServer.endpointURL?.absoluteString == "https://asr.example.test/tts", schemeLessServer.endpointURL?.absoluteString ?? "-")
+        let explicitServer = ServerTTSService(baseURL: "http://asr.example.test", send: { _ in (Data(), 200) })
+        check("read-aloud keeps an explicit http scheme", explicitServer.endpointURL?.absoluteString == "http://asr.example.test/tts")
+        check("empty stays empty", ServerTTSService(baseURL: "  ", send: { _ in (Data(), 200) }).endpointURL == nil)
+
         print("\n== transcription request shape ==")
         guard let request = try? Self.configuredRequest(configured, videoID: "dQw4w9WgXcQ") else {
             check("request built", false)
@@ -1047,6 +1059,28 @@ struct HarnessLogic {
             }
         }())
 
+        print("\n== v0.8.0 upgrade migration ==")
+        check(
+            "pre-0.8.0 archive with empty address gets the default",
+            AppModel.shouldMigrateServerAddress(archivedVoiceOptions: nil, transcriptionURL: "") 
+                && ServerDefaults.baseURL == "https://asr.ysloving.com"
+        )
+        check(
+            "pre-0.8.0 archive that already has an address is left alone",
+            AppModel.shouldMigrateServerAddress(archivedVoiceOptions: nil, transcriptionURL: "https://mine.test") == false
+        )
+        check(
+            "post-0.8.0 archive with a cleared address is never re-filled",
+            AppModel.shouldMigrateServerAddress(
+                archivedVoiceOptions: VoiceOptions(mode: .edgeDirect, serverURL: ""),
+                transcriptionURL: ""
+            ) == false
+        )
+        check(
+            "whitespace-only address counts as empty for the migration",
+            AppModel.shouldMigrateServerAddress(archivedVoiceOptions: nil, transcriptionURL: "   ")
+        )
+
         print("\n== app wiring for read-aloud ==")
         // "No address anywhere" now means explicitly cleared, since this build
         // ships a pre-filled default.
@@ -1094,6 +1128,267 @@ struct HarnessLogic {
                   let restored = try? BackupService.decodeSnapshot(from: stripped) else { return false }
             return restored.voiceOptions?.mode == nil
         }())
+
+        print("\n== grammar analysis (rule-based, no dataset) ==")
+        let explainer = LocalContextExplainer(tokenizer: app.tokenizer, dictionary: app.dictionary)
+        let nounCase = try? await explainer.explain(
+            word: "映画",
+            sentence: "昨日友達と映画を見に行きました。",
+            entry: app.dictionary.best("映画")
+        )
+        check("grammar explanation produced", (nounCase?.headline.isEmpty == false))
+        check(
+            "grammar names the particle role",
+            nounCase?.grammar.contains("助词「を」") == true && nounCase?.grammar.contains("宾语") == true,
+            nounCase?.grammar ?? "-"
+        )
+        check(
+            "grammar states politeness",
+            (nounCase?.grammar.contains("敬体") ?? false) || (nounCase?.grammar.contains("常体") ?? false)
+        )
+        let verbCase = try? await explainer.explain(
+            word: "見ました",
+            sentence: "昨日、映画を見ました。",
+            entry: app.dictionary.best("見る")
+        )
+        check(
+            "grammar reports conjugation of inflected words",
+            verbCase?.grammar.contains("原形") == true,
+            String((verbCase?.grammar ?? "-").prefix(60))
+        )
+        check("explanation declares its engine", nounCase?.source == "本地语法分析")
+
+        print("\n== level grouping and search ==")
+        let groups = app.kanji.levelGroups
+        check("kanji groups cover every entry", groups.reduce(0) { $0 + $1.count } == app.kanji.count, "\(app.kanji.count)")
+        check("kanji groups include N5 and N4", groups.contains { $0.label == "N5" } && groups.contains { $0.label == "N4" })
+        check("kanji search by pinyin without tones finds 日", app.kanji.search("ri").contains { $0.literal == "日" })
+        check("kanji search by pinyin with tones still finds 日", app.kanji.search("rì").contains { $0.literal == "日" })
+        check("pinyin folding ignores case", app.kanji.search("RI").contains { $0.literal == "日" })
+        check("kanji search by kun reading finds 日", app.kanji.search("ひ").contains { $0.literal == "日" })
+        check("kanji search by meaning finds 日", app.kanji.search("sun").contains { $0.literal == "日" })
+        check("literal search ranks the literal first", app.kanji.search("日").first?.literal == "日")
+        check("kanji level counts are consistent", app.kanji.count(levelSortKey: 1) == (groups.first { $0.key == 1 }?.count ?? -1))
+        let n5Clips = app.libraryClips(level: .n5)
+        check("clip library filters by level", n5Clips.allSatisfy { (app.metricsByClip[$0.id]?.level ?? $0.level) == .n5 }, "\(n5Clips.count) clips")
+
+        print("\n== review scheduling bounds ==")
+        var capped = SchedulingState()
+        capped.intervalDays = 700
+        capped.easeFactor = 2.5
+        capped.reviewCount = 10
+        let capResult = SpacedRepetition.review(state: capped, familiarity: 5, rating: .easy)
+        check("interval cap respected", capResult.state.intervalDays <= SpacedRepetition.intervalCapDays, "\(capResult.state.intervalDays)")
+        var floorState = SchedulingState()
+        floorState.easeFactor = 1.3
+        for _ in 0..<20 { floorState = SpacedRepetition.review(state: floorState, familiarity: 1, rating: .again).state }
+        check("ease never drops below the floor", floorState.easeFactor >= SpacedRepetition.minimumEase - 0.0001, "\(floorState.easeFactor)")
+        var ceilState = SchedulingState()
+        ceilState.intervalDays = 5
+        ceilState.reviewCount = 3
+        for _ in 0..<30 { ceilState = SpacedRepetition.review(state: ceilState, familiarity: 3, rating: .easy).state }
+        check("ease never exceeds the ceiling", ceilState.easeFactor <= SpacedRepetition.maximumEase + 0.0001, "\(ceilState.easeFactor)")
+        var ladder = SchedulingState()
+        let ladderGap = SpacedRepetition.review(state: ladder, familiarity: 1, rating: .good).state.dueAt.timeIntervalSinceNow / 60
+        check("new card still takes the 1-minute step", ladderGap > 0.4 && ladderGap < 2, String(format: "%.1f min", ladderGap))
+
+        print("\n== pre-0.8.0 archive compatibility ==")
+        let legacyArchive = """
+        {"schemaVersion":1,"profile":{"displayName":"old","level":"n5","dailyGoalMinutes":10,"dailyNewWords":8,
+        "dailyReviewLimit":60,"topics":[],"furiganaEnabled":true,"romajiEnabled":true,"translationEnabled":true,
+        "translationLanguage":"chinese","autoplayEnabled":true,"loopClip":true,"playbackRate":1.0,"speechRate":0.45,
+        "aiEnabled":false,"aiBaseURL":"https://api.openai.com/v1","aiModel":"gpt-4o-mini","aiLanguage":"chinese",
+        "onboardingCompleted":true},"words":[],"sentenceCards":[],"decks":[],"customClips":[],"activity":{},
+        "watchHistory":[],"savedClipIDs":[],"explanations":{},"streakDayKeys":[],
+        "transcription":{"isEnabled":false,"serverURL":"","timeoutSeconds":90,"translateToChinese":true}}
+        """
+        let legacyDecoded = try? BackupService.decodeSnapshot(from: Data(legacyArchive.utf8))
+        check("v0.7-shaped archive decodes", legacyDecoded != nil)
+        check("old archive has no voiceOptions", legacyDecoded?.voiceOptions == nil)
+        check(
+            "old archive triggers the address migration",
+            legacyDecoded.map {
+                AppModel.shouldMigrateServerAddress(
+                    archivedVoiceOptions: $0.voiceOptions,
+                    transcriptionURL: $0.transcription?.serverURL ?? ""
+                )
+            } == true
+        )
+        check(
+            "migration result matches the shipped default",
+            legacyDecoded.map { _ in ServerDefaults.baseURL == "https://asr.ysloving.com" } == true
+        )
+
+        print("\n== grammar store ==")
+        let grammarStore = GrammarStore()
+        grammarStore.load(url: URL(fileURLWithPath: "Kotoba/Resources/Grammar.json"))
+        check("store loads the bundled file", grammarStore.isLoaded && grammarStore.entries.count == 526, grammarStore.status)
+        let grouped = Dictionary(uniqueKeysWithValues: grammarStore.countsByLevel.map { ($0.level, $0.count) })
+        check(
+            "store groups by level",
+            grouped[.n5] == 81 && grouped[.n4] == 98 && grouped[.n3] == 101 && grouped[.n2] == 123 && grouped[.n1] == 123,
+            "\(grouped)"
+        )
+        check("store filters by level", grammarStore.entries(for: .n3).count == 101 && grammarStore.entries(for: nil).count == 526)
+        check("search by pattern finds は", grammarStore.search("〜は").contains { $0.id == "wa" })
+        check("search by romaji finds は", grammarStore.search("wa").contains { $0.romaji == "wa" })
+        check("search by english gloss", !grammarStore.search("copula").isEmpty, "\(grammarStore.search("copula").count) hits")
+        check("empty query returns everything", grammarStore.search("").count == 526)
+        if let sample = grammarStore.entries.first {
+            check("English meanings are labelled as source text", GrammarStore.meaningLabel(for: sample) == "英文原文")
+        }
+
+        let particle = grammarStore.entries.first { $0.id == "wa" }
+        let relatedToParticle = particle.map { grammarStore.related(to: $0) } ?? []
+        check("related entries share a tag", relatedToParticle.allSatisfy { !$0.tags.isEmpty })
+        check("related entries exclude the entry itself", relatedToParticle.allSatisfy { $0.id != "wa" })
+        check(
+            "related entries actually share a tag",
+            particle.map { base in relatedToParticle.allSatisfy { !Set($0.tags).isDisjoint(with: base.tags) } } ?? false
+        )
+        check("related list is capped", relatedToParticle.count <= 8, "\(relatedToParticle.count) related")
+        print("\n== grammar learned / learning status ==")
+        let toggleTarget = grammarStore.entries.first { $0.id == "wa" }
+        if let toggleTarget {
+            grammarStore.progress = GrammarProgress()
+            check("entries start unmarked", grammarStore.status(for: toggleTarget) == .unseen)
+            check("first tap marks learning", grammarStore.toggleStatus(for: toggleTarget) == .learning)
+            check("second tap marks learned", grammarStore.toggleStatus(for: toggleTarget) == .learned)
+            check("third tap clears it", grammarStore.toggleStatus(for: toggleTarget) == .unseen)
+            check("sets stay mutually exclusive", grammarStore.progress.learning.isEmpty && grammarStore.progress.learned.isEmpty)
+
+            _ = grammarStore.toggleStatus(for: toggleTarget)
+            check("counts reflect learning", grammarStore.counts(for: .learning) == 1 && grammarStore.counts(for: .learned) == 0)
+            check("unseen count subtracts markers", grammarStore.counts(for: .unseen) == 525, "\(grammarStore.counts(for: .unseen))")
+
+            var snapshotWithGrammar = AppSnapshot()
+            snapshotWithGrammar.grammarProgress = grammarStore.progress
+            let grammarEncoder = JSONEncoder()
+            grammarEncoder.dateEncodingStrategy = .iso8601
+            var progressRoundTrip = false
+            if let data = try? grammarEncoder.encode(snapshotWithGrammar),
+               let restored = try? BackupService.decodeSnapshot(from: data) {
+                progressRoundTrip = restored.grammarProgress?.status(for: "wa") == .learning
+                    && restored.grammarProgress?.learning == ["wa"]
+            }
+            check("grammar status survives a backup", progressRoundTrip)
+        }
+
+        print("\n== grammar review readiness (no SM-2 yet) ==")
+        if let sample = grammarStore.entries.first {
+            var queueState = GrammarProgress()
+            check("a fresh mark starts unlearned", queueState.status(for: sample.id) == .unseen)
+            queueState.set(.learned, for: sample.id)
+            check("learned marks are excluded from learning", queueState.status(for: sample.id) == .learned && queueState.learning.isEmpty)
+            queueState.set(.learning, for: sample.id)
+            check("re-marking learning clears learned", queueState.learning == [sample.id] && queueState.learned.isEmpty)
+            check("marks are idempotent", { queueState.set(.learning, for: sample.id); return queueState.markedCount == 1 }())
+            var cycleState = GrammarProgress()
+            let firstCycle = (0..<3).map { _ in cycleState.cycle(sample.id).rawValue }
+            let secondCycle = (0..<3).map { _ in cycleState.cycle(sample.id).rawValue }
+            check("the cycle is deterministic", firstCycle == ["learning", "learned", "unseen"])
+            check("the cycle repeats exactly", secondCycle == firstCycle)
+        }
+        check(
+            "marked counts never exceed the dataset",
+            grammarStore.counts(for: .learning) + grammarStore.counts(for: .learned) <= grammarStore.entries.count
+        )
+
+        print("\n== grammar stats shown on the progress screen ==")
+        let statsStore = GrammarStore()
+        statsStore.load(url: URL(fileURLWithPath: "Kotoba/Resources/Grammar.json"))
+        let totalEntries = statsStore.entries.count
+        check(
+            "stats buckets add up to the dataset",
+            statsStore.counts(for: .learned) + statsStore.counts(for: .learning) + statsStore.counts(for: .unseen) == totalEntries,
+            "\(statsStore.counts(for: .learned)) + \(statsStore.counts(for: .learning)) + \(statsStore.counts(for: .unseen))"
+        )
+        if let firstEntry = statsStore.entries.first, let secondEntry = statsStore.entries.dropFirst().first {
+            statsStore.progress.set(.learned, for: firstEntry.id)
+            statsStore.progress.set(.learning, for: secondEntry.id)
+            check("learned count follows the marks", statsStore.counts(for: .learned) == 1)
+            check("learning count follows the marks", statsStore.counts(for: .learning) == 1)
+            check(
+                "unseen shrinks by exactly two",
+                statsStore.counts(for: .unseen) == totalEntries - 2,
+                "\(statsStore.counts(for: .unseen)) vs \(totalEntries - 2)"
+            )
+            check(
+                "buckets still add up after marking",
+                statsStore.counts(for: .learned) + statsStore.counts(for: .learning) + statsStore.counts(for: .unseen) == totalEntries
+            )
+        }
+
+        print("\n== grammar archives ==")
+        let archiveWithoutProgress = """
+        {"schemaVersion":1,"profile":{"displayName":"old","level":"n5","dailyGoalMinutes":10,"dailyNewWords":8,
+        "dailyReviewLimit":60,"topics":[],"furiganaEnabled":true,"romajiEnabled":true,"translationEnabled":true,
+        "translationLanguage":"chinese","autoplayEnabled":true,"loopClip":true,"playbackRate":1.0,"speechRate":0.45,
+        "aiEnabled":false,"aiBaseURL":"https://api.openai.com/v1","aiModel":"gpt-4o-mini","aiLanguage":"chinese",
+        "onboardingCompleted":true},"words":[],"sentenceCards":[],"decks":[],"customClips":[],"activity":{},
+        "watchHistory":[],"savedClipIDs":[],"explanations":{},"streakDayKeys":[]}
+        """
+        let oldArchive = try? BackupService.decodeSnapshot(from: Data(archiveWithoutProgress.utf8))
+        check("archive without grammarProgress still decodes", oldArchive != nil)
+        check("missing grammarProgress is nil", oldArchive?.grammarProgress == nil)
+        check("fallback is an empty progress", {
+            let fallback = oldArchive?.grammarProgress ?? GrammarProgress()
+            return fallback.markedCount == 0 && fallback.status(for: "wa") == .unseen
+        }())
+        check("all entries read as unseen after the fallback", {
+            let store = GrammarStore()
+            store.load(url: URL(fileURLWithPath: "Kotoba/Resources/Grammar.json"))
+            store.install(progress: oldArchive?.grammarProgress ?? GrammarProgress())
+            return store.counts(for: .unseen) == 526 && store.counts(for: .learned) == 0
+        }())
+
+        var staleArchive = AppSnapshot()
+        staleArchive.grammarProgress = GrammarProgress(learning: ["wa", "no-such-id"], learned: ["also-gone"])
+        let staleStore = GrammarStore()
+        staleStore.load(url: URL(fileURLWithPath: "Kotoba/Resources/Grammar.json"))
+        staleStore.install(progress: staleArchive.grammarProgress ?? GrammarProgress())
+        check("stale ids are pruned on restore", staleStore.progress.learning == ["wa"] && staleStore.progress.learned.isEmpty, "\(staleStore.progress)")
+
+        let emptyStore = GrammarStore()
+        emptyStore.install(progress: GrammarProgress(learning: ["wa"]))
+        check("marks survive while the dataset is not loaded", emptyStore.progress.learning == ["wa"])
+
+        check("untagged entries have no related list", {
+            guard let untagged = grammarStore.entries.first(where: { $0.tags.isEmpty }) else { return true }
+            return grammarStore.related(to: untagged).isEmpty
+        }())
+
+        print("\n== grammar dataset ==")
+        guard let grammarData = try? Data(contentsOf: URL(fileURLWithPath: "Kotoba/Resources/Grammar.json")),
+              let grammar = try? JSONDecoder().decode(GrammarFile.self, from: grammarData) else {
+            check("Grammar.json decodes", false)
+            return
+        }
+        check("grammar file has 526 entries", grammar.entries.count == 526, "\(grammar.entries.count)")
+        let grammarByLevel = grammar.countsByLevel()
+        check("N5 has 81 items", grammarByLevel["N5"] == 81, "\(grammarByLevel["N5"] ?? -1)")
+        check("N4 has 98 items", grammarByLevel["N4"] == 98, "\(grammarByLevel["N4"] ?? -1)")
+        check("N3 has 101 items", grammarByLevel["N3"] == 101, "\(grammarByLevel["N3"] ?? -1)")
+        check("N2 has 123 items", grammarByLevel["N2"] == 123, "\(grammarByLevel["N2"] ?? -1)")
+        check("N1 has 123 items", grammarByLevel["N1"] == 123, "\(grammarByLevel["N1"] ?? -1)")
+        check(
+            "level counts add up to the total",
+            grammarByLevel.values.reduce(0, +) == 526 && grammar.total == 526,
+            "\(grammarByLevel) / total \(grammar.total ?? -1)"
+        )
+        check("counts match the file metadata", grammarByLevel == (grammar.counts ?? [:]), "\(grammar.counts ?? [:])")
+        check(
+            "entry ids are unique per level",
+            Set(grammar.entries.map { "\($0.level?.label ?? "-"):\($0.id)" }).count == grammar.entries.count
+        )
+        check(
+            "no invented Chinese glosses",
+            grammar.entries.allSatisfy { $0.meaningZH == nil && $0.zhStatus == "en-fallback" },
+            "\(grammar.entries.filter { $0.meaningZH != nil }.count) with zh"
+        )
+        check("every entry keeps its English meaning", grammar.entries.allSatisfy { !$0.meaningEN.isEmpty })
+        check("licence recorded as CC BY-SA 4.0", grammar.license == "CC BY-SA 4.0", grammar.license ?? "-")
+        check("source recorded as OpenJLPT", grammar.source?.repo == "evanclan/OpenJLPT", grammar.source?.repo ?? "-")
 
         print("\n\(failures == 0 ? "ALL CHECKS PASSED" : "\(failures) CHECK(S) FAILED")")
         exit(failures == 0 ? 0 : 1)

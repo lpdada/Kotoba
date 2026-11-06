@@ -133,6 +133,10 @@ struct ProfileHomeView: View {
                 ProgressScreen()
             }
             Hairline().padding(.leading, 48)
+            menuRow(icon: "text.book.closed", title: "语法") {
+                GrammarBrowseView()
+            }
+            Hairline().padding(.leading, 48)
             menuRow(icon: "film.stack", title: "素材库") {
                 ClipLibraryView()
             }

@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     @Published var transcription = TranscriptionSettings()
     /// Read-aloud voice preferences (Edge TTS on by default).
     @Published var voiceOptions = VoiceOptions()
+    /// Mirrors `grammar.progress` so badges refresh when a toggle happens.
+    @Published var grammarProgress = GrammarProgress()
     @Published var metricsByClip: [String: ClipMetrics] = [:]
     @Published var toast: String?
     @Published var aiKeyStored = false
@@ -41,12 +43,15 @@ final class AppModel: ObservableObject {
     let store: PersistenceStore
     let dictionary = DictionaryStore()
     let kanji = KanjiStore()
+    let grammar = GrammarStore()
     let library: ClipLibrary
     let speech = SpeechService()
     lazy var tokenizer = Tokenizer(dictionary: dictionary)
     private(set) lazy var reviewSession = ReviewSessionModel(app: self)
 
     private var saveTask: Task<Void, Never>?
+    /// Set when an upgrade fills in the default address, so it is persisted once.
+    private var didMigrateServerAddress = false
     private var pendingWatchRecords: [String: Double] = [:]
 
     init(store: PersistenceStore = PersistenceStore()) {
@@ -61,6 +66,7 @@ final class AppModel: ObservableObject {
         bootstrapMessage = "正在准备词典…"
         dictionary.loadBundled()
         kanji.loadBundled()
+        grammar.loadBundled()
 
         bootstrapMessage = "正在载入学习记录…"
         let snapshot = store.load()
@@ -70,6 +76,10 @@ final class AppModel: ObservableObject {
         library.load(customClips: customClips)
         refreshMetrics()
         aiKeyStored = !(Secrets.value(for: Secrets.aiKeyAccount) ?? "").isEmpty
+        if didMigrateServerAddress {
+            didMigrateServerAddress = false
+            scheduleSave()
+        }
         isReady = true
     }
 
@@ -87,16 +97,18 @@ final class AppModel: ObservableObject {
         explanations = snapshot.explanations
         shadowingRecords = snapshot.shadowingRecords ?? []
         transcription = snapshot.transcription ?? .disabled
-        // One-time migration for upgrades from before 0.8.0: those snapshots
-        // carry an empty transcription address (the old default), so the
-        // pre-filled server address never applied and server mode could not
-        // be selected. Only pre-0.8.0 snapshots (no voiceOptions yet) migrate;
-        // a 0.8.0 user who deliberately cleared the address keeps it empty.
-        if snapshot.voiceOptions == nil,
-           transcription.serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        // Pre-0.8.0 archives predate `voiceOptions` and kept an empty server
+        // address, so the pre-filled default never reached those users.
+        if Self.shouldMigrateServerAddress(
+            archivedVoiceOptions: snapshot.voiceOptions,
+            transcriptionURL: transcription.serverURL
+        ) {
             transcription.serverURL = ServerDefaults.baseURL
+            didMigrateServerAddress = true
         }
         voiceOptions = snapshot.voiceOptions ?? .default
+        grammar.install(progress: snapshot.grammarProgress ?? GrammarProgress())
+        grammarProgress = grammar.progress
         reconfigureSpeech()
         kanjiCards = snapshot.kanjiCards ?? []
     }
@@ -115,6 +127,7 @@ final class AppModel: ObservableObject {
         snapshot.shadowingRecords = shadowingRecords
         snapshot.transcription = transcription
         snapshot.voiceOptions = voiceOptions
+        snapshot.grammarProgress = grammar.progress
         snapshot.kanjiCards = kanjiCards
         snapshot.streakDayKeys = Array(activity.keys).sorted()
         return snapshot
@@ -1023,6 +1036,26 @@ final class AppModel: ObservableObject {
         )
         addCustomClip(clip)
         return clip
+    }
+
+    /// True only for archives written before 0.8.0 (no `voiceOptions`) that also
+    /// carry an empty transcription address. Addresses the user cleared *after*
+    /// 0.8.0 are untouched because those archives already have `voiceOptions`.
+    static func shouldMigrateServerAddress(archivedVoiceOptions: VoiceOptions?, transcriptionURL: String) -> Bool {
+        archivedVoiceOptions == nil
+            && transcriptionURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // MARK: Grammar status
+
+    /// Cycles a grammar entry's status and persists it with the snapshot.
+    @discardableResult
+    func toggleGrammarStatus(_ entry: GrammarEntry) -> GrammarStatus {
+        let status = grammar.toggleStatus(for: entry)
+        grammarProgress = grammar.progress
+        scheduleSave()
+        toast = "\(entry.pattern)：\(status.title)"
+        return status
     }
 
     // MARK: Voice options

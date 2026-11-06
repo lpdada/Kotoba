@@ -309,8 +309,8 @@ struct VocabularyView: View {
 // MARK: - Rows
 
 struct WordRow: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let word: SavedWord
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(spacing: 12) {

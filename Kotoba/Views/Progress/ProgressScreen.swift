@@ -11,6 +11,7 @@ struct ProgressScreen: View {
                 heatmapCard
                 distributionCard
                 kanjiStatsCard
+                grammarStatsCard
                 totalsCard
                 historyCard
                 dictionaryCard
@@ -168,6 +169,49 @@ struct ProgressScreen: View {
     private func ratio(_ stat: KanjiLevelStat) -> Double {
         guard stat.total > 0 else { return 0 }
         return min(Double(stat.learned) / Double(stat.total), 1)
+    }
+
+    private var grammarStatsCard: some View {
+        let learned = app.grammar.counts(for: .learned)
+        let learning = app.grammar.counts(for: .learning)
+        let total = app.grammar.entries.count
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(
+                title: "语法",
+                subtitle: total > 0
+                    ? "共 \(total) 条 ・ 学习中 \(learning) ・ 已学会 \(learned)"
+                    : "语法表尚未载入"
+            )
+            HStack(spacing: 8) {
+                StatTile(
+                    title: "已学会",
+                    value: "\(learned)",
+                    caption: "手动标记",
+                    tint: Theme.jade
+                )
+                StatTile(
+                    title: "学习中",
+                    value: "\(learning)",
+                    caption: "待复习",
+                    tint: Theme.amber
+                )
+                StatTile(
+                    title: "未标记",
+                    value: "\(max(total - learned - learning, 0))",
+                    caption: "还没看",
+                    tint: Theme.secondaryText
+                )
+            }
+            if total > 0 && learned + learning == 0 {
+                Text("个人页点「语法」浏览句型，在详情里标记「学习中 / 已学会」，这里就会开始累计。")
+                    .font(Theme.font(size: 10))
+                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+        .a11yCombine("语法：共 \(total) 条，学习中 \(learning)，已学会 \(learned)")
     }
 
     private var totalsCard: some View {
