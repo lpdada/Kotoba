@@ -87,6 +87,15 @@ final class AppModel: ObservableObject {
         explanations = snapshot.explanations
         shadowingRecords = snapshot.shadowingRecords ?? []
         transcription = snapshot.transcription ?? .disabled
+        // One-time migration for upgrades from before 0.8.0: those snapshots
+        // carry an empty transcription address (the old default), so the
+        // pre-filled server address never applied and server mode could not
+        // be selected. Only pre-0.8.0 snapshots (no voiceOptions yet) migrate;
+        // a 0.8.0 user who deliberately cleared the address keeps it empty.
+        if snapshot.voiceOptions == nil,
+           transcription.serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            transcription.serverURL = ServerDefaults.baseURL
+        }
         voiceOptions = snapshot.voiceOptions ?? .default
         reconfigureSpeech()
         kanjiCards = snapshot.kanjiCards ?? []

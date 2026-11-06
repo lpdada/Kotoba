@@ -188,10 +188,18 @@ struct SettingsView: View {
 
     // MARK: Voice
 
+    /// What the mode picker shows: the stored choice when the user picked one,
+    /// otherwise the mode the engine would actually use. It must NOT be the
+    /// normalised effective mode: that maps server-without-an-address back to
+    /// direct Edge, which made the picker look stuck on the first row.
+    private var selectedMode: ReadAloudMode {
+        app.voiceOptions.mode ?? app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL)
+    }
+
     private var voiceSection: some View {
         Section {
             Picker("朗读方式", selection: Binding(
-                get: { app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL) },
+                get: { selectedMode },
                 set: { value in app.updateVoiceOptions { $0.mode = value } }
             )) {
                 ForEach(ReadAloudMode.allCases) { mode in
@@ -199,7 +207,7 @@ struct SettingsView: View {
                 }
             }
 
-            if app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL) == .server {
+            if selectedMode == .server {
                 TextField("朗读服务器（留空则复用转写地址）", text: $readAloudServerDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
