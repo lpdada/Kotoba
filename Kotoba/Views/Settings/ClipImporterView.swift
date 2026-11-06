@@ -86,10 +86,10 @@ struct ClipImporterView: View {
     private var introCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("用自己的素材学日语")
-                .font(.system(size: 19, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 19, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text("应用不附带任何影视片段。你可以把自己合法持有的短视频或音频放进本地媒体目录，再导入一份字幕清单，就能像内置示例一样滚动学习。所有文件只保存在这台设备上。")
-                .font(.system(size: 12))
+                .font(Theme.font(size: 12))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
@@ -117,17 +117,17 @@ struct ClipImporterView: View {
             SectionHeader(title: "本地媒体", subtitle: "文件 App › 我的 iPhone › Kotoba › Media")
             if mediaFiles.isEmpty {
                 Text("还没有媒体文件。导入后，片段里的 media 填文件名即可，例如 \"clip01.mp4\"。")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             } else {
                 VStack(alignment: .leading, spacing: 5) {
                     ForEach(mediaFiles, id: \.self) { file in
                         HStack(spacing: 8) {
                             Image(systemName: icon(for: file))
-                                .font(.system(size: 12))
+                                .font(Theme.font(size: 12))
                                 .foregroundStyle(Theme.accent)
                             Text(file)
-                                .font(.system(size: 12, design: .monospaced))
+                                .font(Theme.font(size: 12, design: .monospaced))
                                 .foregroundStyle(Theme.ink)
                                 .lineLimit(1)
                             Spacer()
@@ -148,7 +148,7 @@ struct ClipImporterView: View {
                 HStack {
                     SectionHeader(title: "清单格式", subtitle: "点击展开示例")
                     Image(systemName: showFormat ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(Theme.font(size: 11, weight: .semibold))
                         .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -157,7 +157,7 @@ struct ClipImporterView: View {
             if showFormat {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(Self.sampleJSON)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Theme.font(size: 10, design: .monospaced))
                         .foregroundStyle(Theme.ink)
                         .textSelection(.enabled)
                     HStack {
@@ -165,12 +165,12 @@ struct ClipImporterView: View {
                             UIPasteboard.general.string = Self.sampleJSON
                             app.toast = "示例已复制"
                         }
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(Theme.font(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         Spacer()
                     }
                     Text("要点：transcript 一行一句；media 支持 {\"kind\":\"localFile\",\"value\":\"文件名.mp4\"}、{\"kind\":\"generated\"}（无视频时用朗读演示）或 {\"kind\":\"youtube\",\"id\":\"…\",\"start\":12,\"end\":24}（使用官方内嵌播放器，视频仍由平台托管）。")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .padding(10)
@@ -185,7 +185,7 @@ struct ClipImporterView: View {
             SectionHeader(title: "已导入片段", subtitle: "\(app.customClips.count) 条")
             if app.customClips.isEmpty {
                 Text("暂无自建片段。内置示例共 \(app.library.clips.count) 条，用于演示交互。")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             } else {
                 VStack(spacing: 0) {
@@ -193,10 +193,10 @@ struct ClipImporterView: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(clip.title)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(Theme.font(size: 13, weight: .medium))
                                     .foregroundStyle(Theme.ink)
                                 Text("\(clip.media.shortLabel) ・ \(clip.lines.count) 行 ・ \(Int(clip.durationSeconds))s")
-                                    .font(.system(size: 10))
+                                    .font(Theme.font(size: 10))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                             Spacer()
@@ -204,7 +204,7 @@ struct ClipImporterView: View {
                                 app.removeCustomClip(clip)
                             } label: {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 13))
+                                    .font(Theme.font(size: 13))
                                     .foregroundStyle(Theme.rose)
                             }
                             .buttonStyle(.plain)
@@ -288,12 +288,12 @@ struct ClipImporterView: View {
                 TextField("例如：ep01.mp4", text: $subtitleMediaName)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(Theme.font(size: 13, design: .monospaced))
                     .padding(10)
                     .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 if !mediaFiles.isEmpty {
                     Text("可选：" + mediaFiles.prefix(3).joined(separator: "、") + (mediaFiles.count > 3 ? " …" : ""))
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
                 }
@@ -302,7 +302,7 @@ struct ClipImporterView: View {
             VStack(alignment: .leading, spacing: 6) {
                 fieldLabel("片段名称（留空则用字幕文件名）")
                 TextField("例如：第 1 话", text: $subtitleSeries)
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .padding(10)
                     .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
@@ -311,12 +311,12 @@ struct ClipImporterView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     fieldLabel("每段句数")
                     Stepper("\(subtitleLines) 句", value: $subtitleLines, in: 1...6)
-                        .font(.system(size: 13))
+                        .font(Theme.font(size: 13))
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     fieldLabel("最长时长")
                     Stepper("\(Int(subtitleMaxSeconds)) 秒", value: $subtitleMaxSeconds, in: 4...40, step: 2)
-                        .font(.system(size: 13))
+                        .font(Theme.font(size: 13))
                 }
             }
 
@@ -342,19 +342,19 @@ struct ClipImporterView: View {
 
             if let subtitleStatus {
                 Text(subtitleStatus)
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.jade)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let subtitleError {
                 Text(subtitleError)
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.rose)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Text("支持 BOM、CRLF、序号行、`<i>` 标签、ASS 覆盖标记与重复滚动字幕；字幕文本会自动分词，点词即可查读音与释义。")
-                .font(.system(size: 10))
+                .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -440,7 +440,7 @@ struct ClipImporterView: View {
                 TextField("https://www.youtube.com/watch?v=…", text: $youtubeLink)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(Theme.font(size: 13, design: .monospaced))
                     .padding(10)
                     .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
@@ -453,7 +453,7 @@ struct ClipImporterView: View {
                     }
                 } else if !youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("无法识别这个链接。支持 watch?v= / youtu.be / shorts / embed / live，或直接粘贴 11 位视频 ID。")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.rose)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -462,7 +462,7 @@ struct ClipImporterView: View {
             VStack(alignment: .leading, spacing: 6) {
                 fieldLabel("标题")
                 TextField("例如：便利店点单", text: $youtubeTitle)
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .padding(10)
                     .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
@@ -504,7 +504,7 @@ struct ClipImporterView: View {
                     fieldLabel("起点（秒）")
                     TextField("0", text: $youtubeStart)
                         .keyboardType(.decimalPad)
-                        .font(.system(size: 13, design: .rounded))
+                        .font(Theme.font(size: 13, design: .rounded))
                         .padding(10)
                         .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
@@ -512,7 +512,7 @@ struct ClipImporterView: View {
                     fieldLabel("终点（秒）")
                     TextField("8", text: $youtubeEnd)
                         .keyboardType(.decimalPad)
-                        .font(.system(size: 13, design: .rounded))
+                        .font(Theme.font(size: 13, design: .rounded))
                         .padding(10)
                         .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
@@ -520,11 +520,11 @@ struct ClipImporterView: View {
 
             if let duration = youtubeDuration {
                 Text("片段时长 \(String(format: "%.1f", duration)) 秒，播放时在该区间内循环。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
             } else if youtubeRangeInvalid {
                 Text("终点需要大于起点。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.rose)
             }
 
@@ -537,7 +537,7 @@ struct ClipImporterView: View {
             }
 
             Text("字幕会在导入后自动分词，点词即可查读音、释义与语境解释；视频不下载、不转码。")
-                .font(.system(size: 10))
+                .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -547,7 +547,7 @@ struct ClipImporterView: View {
 
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .medium))
+            .font(Theme.font(size: 11, weight: .medium))
             .foregroundStyle(Theme.secondaryText)
     }
 
@@ -555,14 +555,14 @@ struct ClipImporterView: View {
         ZStack(alignment: .topLeading) {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
-                    .font(.system(size: 12, design: .serif))
+                    .font(Theme.font(size: 12, design: .serif))
                     .foregroundStyle(Theme.secondaryText.opacity(0.7))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                     .allowsHitTesting(false)
             }
             TextEditor(text: text)
-                .font(.system(size: 13, design: .serif))
+                .font(Theme.font(size: 13, design: .serif))
                 .scrollContentBackground(.hidden)
                 .padding(6)
                 .frame(height: height)

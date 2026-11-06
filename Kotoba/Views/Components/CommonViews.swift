@@ -9,15 +9,17 @@ struct SectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 17, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -34,7 +36,7 @@ struct Chip: View {
             action?()
         } label: {
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(Theme.font(size: 13, weight: .medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(
@@ -47,6 +49,8 @@ struct Chip: View {
                 .foregroundStyle(isSelected ? tint : Theme.secondaryText)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(text))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -63,9 +67,9 @@ struct PrimaryActionButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let systemImage {
-                    Image(systemName: systemImage).font(.system(size: 15, weight: .semibold))
+                    Image(systemName: systemImage).font(Theme.font(size: 15, weight: .semibold))
                 }
-                Text(title).font(.system(size: 16, weight: .semibold))
+                Text(title).font(Theme.font(size: 16, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -87,9 +91,9 @@ struct SecondaryActionButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let systemImage {
-                    Image(systemName: systemImage).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: systemImage).font(Theme.font(size: 13, weight: .semibold))
                 }
-                Text(title).font(.system(size: 14, weight: .semibold))
+                Text(title).font(Theme.font(size: 14, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
@@ -109,7 +113,7 @@ struct CircleIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: size * 0.42, weight: .semibold))
+                .scaledFont(size * 0.42, relativeTo: .body, weight: .semibold)
                 .frame(width: size, height: size)
                 .background(Theme.card, in: Circle())
                 .overlay(Circle().stroke(Theme.hairline, lineWidth: 1))
@@ -126,11 +130,12 @@ struct LevelBadge: View {
 
     var body: some View {
         Text(level?.label ?? "—")
-            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .font(Theme.font(size: 11, weight: .bold, design: .rounded))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(Theme.levelColor(level).opacity(0.14), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .foregroundStyle(Theme.levelColor(level))
+            .accessibilityLabel(Text(level == nil ? "未分级" : "等级 \(level!.label)"))
     }
 }
 
@@ -140,11 +145,12 @@ struct FamiliarityBadge: View {
 
     var body: some View {
         Text(SpacedRepetition.familiarityTitle(level))
-            .font(.system(size: compact ? 10 : 11, weight: .semibold))
+            .scaledFont(compact ? 10 : 11, relativeTo: .body, weight: .semibold)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(Theme.familiarityColor(level).opacity(0.14), in: Capsule())
             .foregroundStyle(Theme.familiarityColor(level))
+            .accessibilityLabel(Text("熟悉度 \(level)，\(SpacedRepetition.familiarityTitle(level))"))
     }
 }
 
@@ -154,7 +160,7 @@ struct TagLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .medium))
+            .font(Theme.font(size: 11, weight: .medium))
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(tint.opacity(0.10), in: Capsule())
@@ -173,14 +179,14 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 11, weight: .medium))
+                .font(Theme.font(size: 11, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
             Text(value)
-                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .font(Theme.font(size: 24, weight: .semibold, design: .rounded))
                 .foregroundStyle(tint)
             if let caption {
                 Text(caption)
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(2)
             }
@@ -191,10 +197,13 @@ struct StatTile: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.hairline, lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(title)：\(value)\(caption.map { "，\($0)" } ?? "")"))
     }
 }
 
 struct ProgressRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var progress: Double
     var lineWidth: CGFloat = 8
     var size: CGFloat = 76
@@ -208,9 +217,12 @@ struct ProgressRing: View {
                 .trim(from: 0, to: max(0.001, min(progress, 1)))
                 .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.35), value: progress)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.35), value: progress)
         }
         .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("进度"))
+        .accessibilityValue(Text("\(Int(min(max(progress, 0), 1) * 100))%"))
     }
 }
 
@@ -224,19 +236,19 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 30, weight: .light))
+                .scaledFont(30, relativeTo: .title, weight: .light)
                 .foregroundStyle(Theme.secondaryText)
             Text(title)
-                .font(.system(size: 16, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 16, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text(message)
-                .font(.system(size: 12))
+                .font(Theme.font(size: 12))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Theme.secondaryText)
                 .padding(.horizontal, 24)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(Theme.font(size: 13, weight: .semibold))
                     .buttonStyle(.plain)
                     .padding(.top, 2)
                     .foregroundStyle(Theme.accent)
@@ -264,7 +276,7 @@ struct ToastModifier: ViewModifier {
         content.overlay(alignment: .bottom) {
             if let text {
                 Text(text)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(Theme.font(size: 13, weight: .medium))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(Theme.ink.opacity(0.92), in: Capsule())
@@ -354,6 +366,8 @@ struct ActivityHeatmap: View {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .stroke(Theme.hairline, lineWidth: day.minutes == 0 ? 1 : 0)
                     )
+                    .accessibilityLabel(Text(day.dayKey))
+                    .accessibilityValue(Text("\(Int(day.minutes)) 分钟"))
             }
         }
     }

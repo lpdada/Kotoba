@@ -511,6 +511,53 @@ struct HarnessLogic {
                 kanjiRoundTrip = (decoded.kanjiCards ?? []).count == app.kanjiCards.count
             }
             check("kanji cards survive a backup round trip", kanjiRoundTrip)
+
+            print("\n== accessibility: typography scale ==")
+            check(
+                "small sizes map to caption styles",
+                FontScale.textStyle(for: 9) == .caption2
+                    && FontScale.textStyle(for: 11) == .caption2
+                    && FontScale.textStyle(for: 12) == .caption
+                    && FontScale.textStyle(for: 13) == .footnote
+            )
+            check("body size maps to body", FontScale.textStyle(for: 17) == .body)
+            check(
+                "large display sizes map to title styles",
+                FontScale.textStyle(for: 22) == .title2
+                    && FontScale.textStyle(for: 28) == .title
+                    && FontScale.textStyle(for: 40) == .largeTitle
+            )
+            check(
+                "mapping never decreases as size grows",
+                {
+                    var previous = 0.0
+                    var monotonic = true
+                    for size in stride(from: 8.0, through: 80.0, by: 0.5) {
+                        let value = FontScale.defaultSize(for: FontScale.textStyle(for: size))
+                        if value < previous { monotonic = false }
+                        previous = value
+                    }
+                    return monotonic
+                }()
+            )
+            check(
+                "display sizes use @ScaledMetric path",
+                FontScale.usesDisplayScaling(64)
+                    && FontScale.usesDisplayScaling(27)
+                    && !FontScale.usesDisplayScaling(26)
+                    && !FontScale.usesDisplayScaling(17),
+                "threshold \(FontScale.displayThreshold)"
+            )
+            check(
+                "every text style has a default size",
+                FontScale.TextStyle.allCases.allSatisfy { FontScale.defaultSize(for: $0) > 0 }
+            )
+            check(
+                "styles cover the sizes used by the UI",
+                [9.0, 10, 11, 12, 13, 14, 15, 16, 17, 20, 22].allSatisfy { size in
+                    FontScale.defaultSize(for: FontScale.textStyle(for: size)) > 0
+                }
+            )
             check("state file without the new key still decodes", {
                 var full = AppSnapshot()
                 full.words = [backupWord]

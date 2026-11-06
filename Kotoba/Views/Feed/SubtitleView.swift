@@ -60,15 +60,15 @@ struct FuriganaMarkupView: View {
                 VStack(spacing: 0) {
                     if let reading = segment.reading {
                         Text(reading)
-                            .font(.system(size: fontSize * 0.58))
+                            .scaledFont(fontSize * 0.58)
                             .foregroundStyle(color.opacity(0.55))
                     } else {
                         Text(" ")
-                            .font(.system(size: fontSize * 0.58))
+                            .scaledFont(fontSize * 0.58)
                             .opacity(0)
                     }
                     Text(segment.base)
-                        .font(.system(size: fontSize, weight: .regular, design: .serif))
+                        .scaledFont(fontSize, relativeTo: .body, weight: .regular, design: .serif)
                         .foregroundStyle(color)
                 }
             }
@@ -101,22 +101,37 @@ struct SubtitleTokenView: View {
         VStack(spacing: 0) {
             if showFurigana, let reading = token.reading, reading != token.text, token.kind != .punctuation {
                 Text(reading)
-                    .font(.system(size: fontSize * 0.52))
+                    .scaledFont(fontSize * 0.52)
                     .foregroundStyle(tint.opacity(0.75))
             } else if showFurigana, token.kind != .punctuation {
                 Text(" ")
-                    .font(.system(size: fontSize * 0.52))
+                    .scaledFont(fontSize * 0.52)
                     .opacity(0)
             }
             Text(token.text)
-                .font(.system(size: fontSize, weight: .regular, design: .serif))
+                // Non-colour channel for familiarity: unknown words are solid
+                // underlined, half-known dotted, known words plain.
+                .stateUnderline(familiarity ?? 0)
+                .scaledFont(fontSize, relativeTo: .body, weight: .regular, design: .serif)
                 .foregroundStyle(tint)
             if showRomaji, token.kind == .word || token.kind == .particle {
                 Text(token.romajiText)
-                    .font(.system(size: fontSize * 0.42))
+                    .scaledFont(fontSize * 0.42)
                     .foregroundStyle(tint.opacity(0.5))
             }
         }
+    }
+
+    private func tokenLabel(_ token: ClipToken, familiarity: Int?) -> String {
+        var parts = [token.text]
+        if let reading = token.reading, reading != token.text { parts.append("读音 \(reading)") }
+        if let formation = token.formation { parts.append(formation) }
+        if let familiarity {
+            parts.append("熟悉度 \(familiarity)，\(SpacedRepetition.familiarityTitle(familiarity))")
+        } else {
+            parts.append("未收录")
+        }
+        return parts.joined(separator: "，")
     }
 
     private var tint: Color {
@@ -149,7 +164,7 @@ struct SubtitleLineView: View {
                 ForEach(tokens) { token in
                     if token.kind == .punctuation {
                         Text(token.text)
-                            .font(.system(size: 21, design: .serif))
+                            .font(Theme.font(size: 21, design: .serif))
                             .foregroundStyle(Theme.ink.opacity(0.7))
                     } else {
                         Button {
@@ -164,12 +179,14 @@ struct SubtitleLineView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text(tokenLabel(token, familiarity: familiarityFor(token))))
+                        .accessibilityHint(Text("查看读音、释义与例句"))
                     }
                 }
             }
             if showTranslation, let translation, !translation.isEmpty {
                 Text(translation)
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .foregroundStyle(Theme.ink.opacity(0.62))
                     .fixedSize(horizontal: false, vertical: true)
             }

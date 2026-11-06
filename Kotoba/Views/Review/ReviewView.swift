@@ -4,6 +4,7 @@ struct ReviewView: View {
     @ObservedObject var session: ReviewSessionModel
     @EnvironmentObject private var app: AppModel
     @State private var showBulkIntervalHelp = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,7 @@ struct ReviewView: View {
                         Button("结束") {
                             session.end()
                         }
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(Theme.font(size: 13, weight: .semibold))
                     }
                 }
             }
@@ -52,17 +53,17 @@ struct ReviewView: View {
                         showBulkIntervalHelp = true
                     } label: {
                         Text("间隔是怎么算的？")
-                            .font(.system(size: 12))
+                            .font(Theme.font(size: 12))
                             .foregroundStyle(Theme.accent)
                     }
                     .buttonStyle(.plain)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("新卡先经过 1 分钟、10 分钟两个阶梯；毕业到 1 天，之后每次按难度系数（初始 2.5）放大间隔。评分「忘记」会回到学习阶段，并把系数下调 0.22；「记得 / 简单」会小幅上调系数并分别按 1.0x / 1.35x 放大。间隔上下浮动 5%，最长两年。")
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                         Text("熟悉度（1–5）由当前间隔反推：<1天=生疏，<3天=眼熟，<7天=有印象，<21天=熟悉，≥21天=掌握。")
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     .card()
@@ -77,25 +78,26 @@ struct ReviewView: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(app.dueReviewCount())")
-                        .font(.system(size: 46, weight: .semibold, design: .rounded))
+                        .scaledFont(46, relativeTo: .title, weight: .semibold, design: .rounded)
                         .foregroundStyle(Theme.ink)
                     Text("张卡片等待复习")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 ProgressRing(progress: app.goalProgress, size: 66, tint: Theme.accent)
                     .overlay(
                         Text("\(Int(app.minutesToday))分")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(Theme.accent)
                     )
             }
 
             if app.kanjiDueCount > 0 || !app.kanjiCards.isEmpty {
                 Text("其中汉字卡 \(app.kanjiCards.count) 张，今天到期 \(app.kanjiDueCount) 张")
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
+                    .accessibilityLabel(Text("汉字卡 \(app.kanjiCards.count) 张，今天到期 \(app.kanjiDueCount) 张"))
             }
 
             PrimaryActionButton(
@@ -108,7 +110,7 @@ struct ReviewView: View {
 
             if app.words.isEmpty {
                 Text("生词本还是空的：先去片段里点几个词保存起来。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -137,22 +139,25 @@ struct ReviewView: View {
                 ForEach(forecast) { day in
                     VStack(spacing: 4) {
                         Text("\(day.due)")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(day.due > 0 ? Theme.ink : Theme.secondaryText)
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(day.isToday ? Theme.accent : Theme.accent.opacity(0.42))
                             .frame(height: max(CGFloat(day.due) / CGFloat(peak) * 72, 3))
                         Text(day.shortLabel)
-                            .font(.system(size: 9))
+                            .font(Theme.font(size: 9))
                             .foregroundStyle(day.isToday ? Theme.accent : Theme.secondaryText)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(day.isToday ? "今天" : day.shortLabel))
+                    .accessibilityValue(Text("\(day.due) 张到期"))
                 }
             }
             .frame(height: 108, alignment: .bottom)
 
             Text("逾期卡片已并入今天；想降低压力就调小分组的「每日复习上限」。")
-                .font(.system(size: 10))
+                .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.secondaryText)
         }
         .card()
@@ -162,7 +167,7 @@ struct ReviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "接下来", subtitle: "按到期时间排序")
             if app.words.isEmpty {
-                Text("没有排队中的词。").font(.system(size: 12)).foregroundStyle(Theme.secondaryText).card()
+                Text("没有排队中的词。").font(Theme.font(size: 12)).foregroundStyle(Theme.secondaryText).card()
             } else {
                 VStack(spacing: 0) {
                     let upcoming = app.words
@@ -172,12 +177,12 @@ struct ReviewView: View {
                     ForEach(Array(upcoming)) { word in
                         HStack(spacing: 10) {
                             Text(word.word)
-                                .font(.system(size: 15, design: .serif))
+                                .font(Theme.font(size: 15, design: .serif))
                                 .foregroundStyle(Theme.ink)
                             LevelBadge(level: word.level)
                             Spacer()
                             Text(word.scheduling.isNew ? "新词" : SpacedRepetition.describe(seconds: word.scheduling.dueAt.timeIntervalSinceNow) + "后")
-                                .font(.system(size: 10))
+                                .font(Theme.font(size: 10))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .padding(.horizontal, 14)
@@ -194,7 +199,7 @@ struct ReviewView: View {
             SectionHeader(title: "整句卡片", subtitle: "\(app.sentenceCards.count) 张")
             if app.sentenceCards.isEmpty {
                 Text("在片段里点「整句」把喜欢的对白存成卡片。")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
                     .card()
             } else {
@@ -203,11 +208,11 @@ struct ReviewView: View {
                         HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(card.text)
-                                    .font(.system(size: 14, design: .serif))
+                                    .font(Theme.font(size: 14, design: .serif))
                                     .foregroundStyle(Theme.ink)
                                     .lineLimit(2)
                                 Text(card.translation)
-                                    .font(.system(size: 10))
+                                    .font(Theme.font(size: 10))
                                     .foregroundStyle(Theme.secondaryText)
                                     .lineLimit(1)
                             }
@@ -252,7 +257,7 @@ struct ReviewView: View {
         VStack(spacing: 6) {
             HStack {
                 Text("\(session.index + 1) / \(session.queue.count)")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(Theme.font(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
                 if let word = session.word {
@@ -273,6 +278,9 @@ struct ReviewView: View {
             }
             .frame(height: 5)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("复习进度"))
+        .accessibilityValue(Text("第 \(min(session.index + 1, max(session.queue.count, 1))) 张，共 \(session.queue.count) 张"))
     }
 
     private var cardSurface: some View {
@@ -298,6 +306,7 @@ struct ReviewView: View {
             .padding(20)
         }
         .frame(maxHeight: 420)
+        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.85), value: session.isFlipped)
         .onTapGesture {
             session.flip()
         }
@@ -317,9 +326,9 @@ struct ReviewView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Text(rating.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(Theme.font(size: 14, weight: .semibold))
                         Text(previewText(for: rating))
-                            .font(.system(size: 9))
+                            .font(Theme.font(size: 9))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     .frame(maxWidth: .infinity)
@@ -331,6 +340,8 @@ struct ReviewView: View {
                     .foregroundStyle(Theme.ratingColor(rating))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("评分：\(rating.title)"))
+                .accessibilityHint(Text("\(rating.hint)，下次约 \(previewText(for: rating))后"))
             }
         }
     }
@@ -341,16 +352,18 @@ struct ReviewView: View {
                 session.undo()
             } label: {
                 Label("撤销", systemImage: "arrow.uturn.backward")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(session.logs.isEmpty ? Theme.secondaryText.opacity(0.4) : Theme.secondaryText)
             }
             .buttonStyle(.plain)
             .disabled(session.logs.isEmpty)
+            .accessibilityLabel(Text("撤销上一次评分"))
+            .accessibilityHint(Text(session.logs.isEmpty ? "还没有评分" : "把上一张卡放回队列并还原状态"))
 
             Spacer()
 
             Text("记住 \(session.goodCount) ・ 忘记 \(session.againCount)")
-                .font(.system(size: 11))
+                .font(Theme.font(size: 11))
                 .foregroundStyle(Theme.secondaryText)
         }
         .padding(.top, 4)
@@ -376,10 +389,10 @@ struct ReviewView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("这一轮完成了")
-                        .font(.system(size: 22, weight: .semibold, design: .serif))
+                        .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                         .foregroundStyle(Theme.ink)
                     Text("用时 \(Int(session.elapsed / 60)) 分 \(Int(session.elapsed.truncatingRemainder(dividingBy: 60))) 秒")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .card()

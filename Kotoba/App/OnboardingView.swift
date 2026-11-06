@@ -34,11 +34,11 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Kotoba")
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .font(Theme.font(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(Theme.ink)
                 Spacer()
                 Text("第 \(step + 1) / 3 步")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             }
             HStack(spacing: 6) {
@@ -59,10 +59,10 @@ struct OnboardingView: View {
     private var levelStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("先从你的日语水平开始")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text("我会按这个水平推荐片段与生词难度，之后在设置里随时能改。")
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.secondaryText)
 
             VStack(spacing: 8) {
@@ -74,10 +74,10 @@ struct OnboardingView: View {
                             LevelBadge(level: level)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(level.title)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(Theme.font(size: 15, weight: .semibold))
                                     .foregroundStyle(Theme.ink)
                                 Text(level.summary)
-                                    .font(.system(size: 12))
+                                    .font(Theme.font(size: 12))
                                     .foregroundStyle(Theme.secondaryText)
                                     .multilineTextAlignment(.leading)
                             }
@@ -106,15 +106,15 @@ struct OnboardingView: View {
     private var goalStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("每天想花多少时间？")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text("短视频学习的关键是频率而不是时长，10 分钟往往比周末补两小时更有效。")
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.secondaryText)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("每日目标")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Theme.font(size: 12, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                 HStack(spacing: 8) {
                     ForEach(minutesOptions, id: \.self) { value in
@@ -130,7 +130,7 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("每天引入新词")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Theme.font(size: 12, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                 HStack(spacing: 8) {
                     ForEach(newWordOptions, id: \.self) { value in
@@ -149,18 +149,18 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("字幕显示")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Theme.font(size: 12, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                 Toggle("显示振假名", isOn: Binding(
                     get: { app.profile.furiganaEnabled },
                     set: { value in app.updateProfile { $0.furiganaEnabled = value } }
                 ))
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 Toggle("显示罗马字", isOn: Binding(
                     get: { app.profile.romajiEnabled },
                     set: { value in app.updateProfile { $0.romajiEnabled = value } }
                 ))
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
             }
             .tint(Theme.accent)
         }
@@ -169,10 +169,10 @@ struct OnboardingView: View {
     private var interestStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("想看哪类素材？")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text("只影响推荐排序。之后导入自己的片段也能自定义标签。")
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.secondaryText)
 
             FlowChips(
@@ -190,7 +190,7 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("音频朗读速度")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Theme.font(size: 12, weight: .medium))
                     .foregroundStyle(Theme.secondaryText)
                 HStack(spacing: 8) {
                     ForEach([0.35, 0.45, 0.55], id: \.self) { rate in
@@ -225,7 +225,7 @@ struct OnboardingView: View {
                 Button("返回上一步") {
                     withAnimation(.easeInOut(duration: 0.2)) { step -= 1 }
                 }
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .foregroundStyle(Theme.secondaryText)
             }
         }

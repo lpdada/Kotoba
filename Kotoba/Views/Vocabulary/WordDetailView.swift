@@ -71,17 +71,17 @@ struct WordDetailView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(word.word)
-                        .font(.system(size: 32, weight: .semibold, design: .serif))
+                        .scaledFont(32, relativeTo: .title, weight: .semibold, design: .serif)
                         .foregroundStyle(Theme.ink)
                     HStack(spacing: 8) {
                         if !word.reading.isEmpty {
                             Text(word.reading)
-                                .font(.system(size: 13))
+                                .font(Theme.font(size: 13))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         if !word.romaji.isEmpty {
                             Text(word.romaji)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(Theme.font(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(Theme.accent.opacity(0.8))
                         }
                     }
@@ -91,12 +91,13 @@ struct WordDetailView: View {
                     app.speech.speak(word.word, rate: app.profile.speechRate)
                 } label: {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Theme.font(size: 15, weight: .semibold))
                         .frame(width: 42, height: 42)
                         .background(Theme.accentSoft, in: Circle())
                         .foregroundStyle(Theme.accent)
                 }
                 .buttonStyle(.plain)
+                .a11yButton("朗读 \(word.word)")
             }
             HStack(spacing: 6) {
                 LevelBadge(level: word.level)
@@ -145,18 +146,18 @@ struct WordDetailView: View {
             SectionHeader(title: "释义", subtitle: entry?.posLabel)
             if word.meanings.isEmpty {
                 Text("没有词典释义，可以自己写一句中文笔记。")
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .foregroundStyle(Theme.secondaryText)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(word.meanings.enumerated()), id: \.offset) { index, meaning in
                         HStack(alignment: .top, spacing: 8) {
                             Text("\(index + 1)")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .font(Theme.font(size: 11, weight: .bold, design: .rounded))
                                 .foregroundStyle(Theme.accent)
                                 .frame(width: 16)
                             Text(meaning)
-                                .font(.system(size: 14))
+                                .font(Theme.font(size: 14))
                                 .foregroundStyle(Theme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -181,10 +182,10 @@ struct WordDetailView: View {
                             } label: {
                                 VStack(spacing: 2) {
                                     Text(kanjiEntry.literal)
-                                        .font(.system(size: 22, design: .serif))
+                                        .font(Theme.font(size: 22, design: .serif))
                                         .foregroundStyle(Theme.ink)
                                     Text(kanjiEntry.levelLabel)
-                                        .font(.system(size: 8))
+                                        .font(Theme.font(size: 8))
                                         .foregroundStyle(Theme.secondaryText)
                                 }
                                 .frame(width: 52, height: 52)
@@ -205,7 +206,7 @@ struct WordDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "我的笔记", subtitle: "写中文、写例句都行")
             TextEditor(text: $noteDraft)
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .frame(height: 90)
                 .scrollContentBackground(.hidden)
                 .padding(6)
@@ -217,11 +218,11 @@ struct WordDetailView: View {
                     app.updateWord(copy)
                     app.toast = "笔记已保存"
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 Spacer()
                 Button("加入分组") { showDecks = true }
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -232,12 +233,12 @@ struct WordDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "来源片段", subtitle: nil)
             Text(sentence)
-                .font(.system(size: 15, design: .serif))
+                .font(Theme.font(size: 15, design: .serif))
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             if let clipID = word?.sourceClipID, let clip = app.library.clip(id: clipID) {
                 Text("\(clip.displaySeries) ・ \(clip.title)")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -255,7 +256,7 @@ struct WordDetailView: View {
                         fontSize: 15
                     )
                     Text(example.english)
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,9 +280,9 @@ struct WordDetailView: View {
                     } label: {
                         VStack(spacing: 3) {
                             Text(rating.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(Theme.font(size: 13, weight: .semibold))
                             Text(SpacedRepetition.previewInterval(state: word.scheduling, rating: rating))
-                                .font(.system(size: 9))
+                                .font(Theme.font(size: 9))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity)
@@ -290,6 +291,8 @@ struct WordDetailView: View {
                         .foregroundStyle(Theme.ratingColor(rating))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text("评分：\(rating.title)"))
+                    .accessibilityHint(Text("\(rating.hint)，下次约 \(SpacedRepetition.previewInterval(state: word.scheduling, rating: rating))后"))
                 }
             }
         }
@@ -349,7 +352,7 @@ struct DeckPickerSheet: View {
                                 Text(deck.name)
                                     .foregroundStyle(Theme.ink)
                                 Text("\(app.wordCount(inDeck: deck.id)) 个词")
-                                    .font(.system(size: 11))
+                                    .font(Theme.font(size: 11))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                             Spacer()

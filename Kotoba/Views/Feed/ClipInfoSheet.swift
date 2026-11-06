@@ -13,18 +13,18 @@ struct ClipInfoSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(clip.title)
-                            .font(.system(size: 22, weight: .semibold, design: .serif))
+                            .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                             .foregroundStyle(Theme.ink)
                         HStack(spacing: 6) {
                             Text(clip.displaySeries)
-                                .font(.system(size: 12))
+                                .font(Theme.font(size: 12))
                                 .foregroundStyle(Theme.secondaryText)
                             if !clip.episode.isEmpty {
                                 Text("·")
-                                    .font(.system(size: 12))
+                                    .font(Theme.font(size: 12))
                                     .foregroundStyle(Theme.secondaryText)
                                 Text(clip.episode)
-                                    .font(.system(size: 12))
+                                    .font(Theme.font(size: 12))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                         }
@@ -71,12 +71,12 @@ struct ClipInfoSheet: View {
                             ForEach(Array(clip.lines.enumerated()), id: \.offset) { index, line in
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(line)
-                                        .font(.system(size: 15, design: .serif))
+                                        .font(Theme.font(size: 15, design: .serif))
                                         .foregroundStyle(Theme.ink)
                                         .textSelection(.enabled)
                                     if let translation = clip.translationLines[safe: index] {
                                         Text(translation)
-                                            .font(.system(size: 12))
+                                            .font(Theme.font(size: 12))
                                             .foregroundStyle(Theme.secondaryText)
                                             .textSelection(.enabled)
                                     }
@@ -102,11 +102,12 @@ struct ClipInfoSheet: View {
                         ) {
                             app.toggleSavedClip(clip)
                         }
+                        .accessibilityValue(Text(app.savedClipIDs.contains(clip.id) ? "已收藏" : "未收藏"))
                     }
 
                     if !clip.attribution.isEmpty {
                         Text("素材来源：\(clip.attribution)")
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                     }
                 }

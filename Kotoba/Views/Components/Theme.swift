@@ -96,6 +96,41 @@ enum Theme {
         return palette[Int(hash % UInt64(palette.count))]
     }
 
+    // MARK: Typography (Dynamic Type aware)
+
+    /// Font for a base point size, expressed as a system text style so it scales.
+    static func font(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> Font {
+        font(FontScale.textStyle(for: Double(size)), weight: weight, design: design)
+    }
+
+    /// Font for a semantic text style. Prefer this for new code.
+    static func font(
+        _ style: FontScale.TextStyle,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> Font {
+        .system(swiftUITextStyle(style), design: design).weight(weight)
+    }
+
+    static func swiftUITextStyle(_ style: FontScale.TextStyle) -> Font.TextStyle {
+        switch style {
+        case .caption2: return .caption2
+        case .caption: return .caption
+        case .footnote: return .footnote
+        case .subheadline: return .subheadline
+        case .callout: return .callout
+        case .body: return .body
+        case .title3: return .title3
+        case .title2: return .title2
+        case .title: return .title
+        case .largeTitle: return .largeTitle
+        }
+    }
+
     // MARK: Helpers
 
     private static func dynamic(light: UIColor, dark: UIColor) -> Color {
@@ -132,5 +167,74 @@ extension View {
 
     func sectionSpacing() -> some View {
         padding(.horizontal, 18)
+    }
+}
+
+// MARK: - Display text scaling
+
+/// Keeps a large display size (kanji glyph, big counters) while letting Dynamic
+/// Type grow it, via `@ScaledMetric` relative to a text style.
+struct ScaledFontModifier: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(base: CGFloat, relativeTo style: Font.TextStyle, weight: Font.Weight, design: Font.Design) {
+        _size = ScaledMetric(wrappedValue: base, relativeTo: style)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    func scaledFont(
+        _ base: CGFloat,
+        relativeTo style: Font.TextStyle = .body,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> some View {
+        modifier(ScaledFontModifier(base: base, relativeTo: style, weight: weight, design: design))
+    }
+}
+
+// MARK: - Accessibility helpers
+
+extension View {
+    /// Read-only block read as one sentence, e.g. a card summary.
+    func a11yCombine(_ label: String, hint: String? = nil, value: String? = nil) -> some View {
+        self
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(label))
+            .accessibilityHint(Text(hint ?? ""))
+            .accessibilityValue(Text(value ?? ""))
+    }
+
+    /// Icon-only control: give it the meaning a sighted user gets from the glyph.
+    func a11yButton(_ label: String, hint: String? = nil, value: String? = nil) -> some View {
+        self
+            .accessibilityLabel(Text(label))
+            .accessibilityHint(Text(hint ?? ""))
+            .accessibilityValue(Text(value ?? ""))
+            .accessibilityAddTraits(.isButton)
+    }
+
+    /// Purely decorative artwork that must not appear in the VoiceOver tree.
+    func a11yDecorative() -> some View {
+        accessibilityHidden(true)
+    }
+}
+
+extension Text {
+    /// Secondary channel for state that would otherwise be colour-only.
+    func stateUnderline(_ level: Int) -> Text {
+        switch level {
+        case 1: return underline(true, pattern: .solid, color: nil)
+        case 2: return underline(true, pattern: .dot, color: nil)
+        default: return self
+        }
     }
 }

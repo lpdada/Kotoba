@@ -20,6 +20,7 @@ FILES=(
   Kotoba/Model/VocabularyModels.swift
   Kotoba/Model/ProfileModels.swift
   Kotoba/Model/KanjiModels.swift
+  Kotoba/Model/AccessibilityMetrics.swift
   Kotoba/Services/Deinflector.swift
   Kotoba/Services/DictionaryStore.swift
   Kotoba/Services/Tokenizer.swift
@@ -49,3 +50,6 @@ fi
 cp Tools/HarnessLogic.swift "$WORK/$(basename Tools/HarnessLogic.swift)"
 "$SWIFTC" -swift-version 5 -Onone "$WORK"/*.swift -o "$WORK/harness"
 "$WORK/harness" Kotoba/Resources/Dictionary.json
+
+# Structural accessibility invariants (no Xcode needed).
+python3 Tools/check_accessibility.py

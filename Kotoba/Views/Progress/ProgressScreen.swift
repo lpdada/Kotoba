@@ -27,15 +27,15 @@ struct ProgressScreen: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(app.streakDays)")
-                        .font(.system(size: 44, weight: .semibold, design: .rounded))
+                        .scaledFont(44, relativeTo: .title, weight: .semibold, design: .rounded)
                         .foregroundStyle(Theme.ink)
                     Text("连续学习天数")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 26))
+                    .font(Theme.font(size: 26))
                     .foregroundStyle(Theme.amber.opacity(0.85))
             }
             HStack(spacing: 6) {
@@ -45,10 +45,13 @@ struct ProgressScreen: View {
                             .fill(day.minutes >= 1 ? Theme.accent : Theme.cardMuted)
                             .frame(height: 26)
                         Text(shortLabel(day.dayKey))
-                            .font(.system(size: 9))
+                            .font(Theme.font(size: 9))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(shortLabel(day.dayKey)))
+                    .accessibilityValue(Text("\(Int(day.minutes)) 分钟"))
                 }
             }
         }
@@ -73,7 +76,7 @@ struct ProgressScreen: View {
             )
             HStack(spacing: 6) {
                 Text("少")
-                    .font(.system(size: 9))
+                    .font(Theme.font(size: 9))
                     .foregroundStyle(Theme.secondaryText)
                 ForEach(0..<4, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -81,11 +84,11 @@ struct ProgressScreen: View {
                         .frame(width: 14, height: 8)
                 }
                 Text("多")
-                    .font(.system(size: 9))
+                    .font(Theme.font(size: 9))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
                 Text("今天 \(Int(app.minutesToday)) 分钟")
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -101,16 +104,18 @@ struct ProgressScreen: View {
                     let maxCount = max(app.familiarityCounts.values.max() ?? 1, 1)
                     VStack(spacing: 5) {
                         Text("\(count)")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(Theme.secondaryText)
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(Theme.familiarityColor(level))
                             .frame(height: max(CGFloat(count) / CGFloat(maxCount) * 90, 3))
                         Text(SpacedRepetition.familiarityTitle(level))
-                            .font(.system(size: 9))
+                            .font(Theme.font(size: 9))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("\(SpacedRepetition.familiarityTitle(level)) \(count) 个"))
                 }
             }
             .frame(height: 130)
@@ -129,7 +134,7 @@ struct ProgressScreen: View {
                 ForEach(stats) { stat in
                     HStack(spacing: 8) {
                         Text(stat.label)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(Theme.font(size: 11, weight: .medium))
                             .foregroundStyle(Theme.secondaryText)
                             .frame(width: 44, alignment: .leading)
                         GeometryReader { geometry in
@@ -141,8 +146,9 @@ struct ProgressScreen: View {
                             }
                         }
                         .frame(height: 6)
+                        .accessibilityHidden(true)
                         Text("\(stat.learned)/\(stat.total)")
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .medium, design: .rounded))
                             .foregroundStyle(Theme.secondaryText)
                             .frame(width: 62, alignment: .trailing)
                     }
@@ -150,7 +156,7 @@ struct ProgressScreen: View {
             }
             if app.kanjiCards.isEmpty {
                 Text("生词页点「汉字」进入汉字表，挑几个字加入复习，它们会和生词一起排队。")
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -186,7 +192,7 @@ struct ProgressScreen: View {
             SectionHeader(title: "最近观看", subtitle: "\(app.watchHistory.count) 条记录")
             if app.watchHistory.isEmpty {
                 Text("还没有观看记录。")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
                     .card()
             } else {
@@ -195,16 +201,16 @@ struct ProgressScreen: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(app.library.clip(id: record.clipID)?.title ?? record.clipID)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(Theme.font(size: 12, weight: .medium))
                                     .foregroundStyle(Theme.ink)
                                     .lineLimit(1)
                                 Text(record.watchedAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.system(size: 9))
+                                    .font(Theme.font(size: 9))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                             Spacer()
                             Text("\(Int(record.seconds))s")
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .font(Theme.font(size: 10, weight: .medium, design: .rounded))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .padding(.horizontal, 14)
@@ -224,13 +230,13 @@ struct ProgressScreen: View {
                     let count = app.dictionary.levelCounts[level] ?? 0
                     VStack(spacing: 3) {
                         Text("\(count)")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(Theme.levelColor(level))
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(Theme.levelColor(level).opacity(0.75))
                             .frame(height: 26)
                         Text(level.label)
-                            .font(.system(size: 9))
+                            .font(Theme.font(size: 9))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     .frame(maxWidth: .infinity)

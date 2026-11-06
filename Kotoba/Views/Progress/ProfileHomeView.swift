@@ -30,15 +30,15 @@ struct ProfileHomeView: View {
                         .fill(Theme.accent.opacity(0.14))
                         .frame(width: 52, height: 52)
                     Text(String(app.profile.displayName.prefix(1)))
-                        .font(.system(size: 22, weight: .semibold, design: .serif))
+                        .font(Theme.font(size: 22, weight: .semibold, design: .serif))
                         .foregroundStyle(Theme.accent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(app.profile.displayName)
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                        .font(Theme.font(size: 18, weight: .semibold, design: .serif))
                         .foregroundStyle(Theme.ink)
                     Text(app.profile.goalSummary)
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
@@ -49,15 +49,15 @@ struct ProfileHomeView: View {
                 ProgressRing(progress: app.goalProgress, size: 54, tint: Theme.jade)
                     .overlay(
                         Text("\(Int(app.goalProgress * 100))%")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(Theme.jade)
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Text("今天 \(Int(app.minutesToday)) / \(app.profile.dailyGoalMinutes) 分钟")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(Theme.font(size: 13, weight: .medium))
                         .foregroundStyle(Theme.ink)
                     Text("连续 \(app.streakDays) 天 ・ 观看 \(app.watchHistory.count) 次 ・ 生词 \(app.words.count) 个")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
@@ -96,7 +96,7 @@ struct ProfileHomeView: View {
                 ForEach(Array(app.achievements.enumerated()), id: \.element.id) { index, achievement in
                     HStack(spacing: 12) {
                         Image(systemName: achievement.symbol)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(Theme.font(size: 15, weight: .medium))
                             .frame(width: 30, height: 30)
                             .background(
                                 (achievement.isUnlocked ? Theme.accent : Theme.secondaryText).opacity(0.12),
@@ -105,15 +105,15 @@ struct ProfileHomeView: View {
                             .foregroundStyle(achievement.isUnlocked ? Theme.accent : Theme.secondaryText)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(achievement.title)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(Theme.font(size: 13, weight: .medium))
                                 .foregroundStyle(achievement.isUnlocked ? Theme.ink : Theme.secondaryText)
                             Text(achievement.detail)
-                                .font(.system(size: 10))
+                                .font(Theme.font(size: 10))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         Spacer()
                         Text(achievement.progressText)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(achievement.isUnlocked ? Theme.jade : Theme.secondaryText)
                     }
                     .padding(.horizontal, 14)
@@ -156,15 +156,15 @@ struct ProfileHomeView: View {
         NavigationLink(destination: destination()) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(Theme.font(size: 14))
                     .frame(width: 22)
                     .foregroundStyle(Theme.accent)
                 Text(title)
-                    .font(.system(size: 14))
+                    .font(Theme.font(size: 14))
                     .foregroundStyle(Theme.ink)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
             }
             .padding(.horizontal, 16)
@@ -172,15 +172,17 @@ struct ProfileHomeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text("双击打开\(title)"))
     }
 
     private var footerNote: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Kotoba 1.0 ・ 个人学习工具")
-                .font(.system(size: 11, weight: .medium))
+                .font(Theme.font(size: 11, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
             Text("所有学习记录只存在这台设备上。片段时间轴与字幕为你自行导入的内容，应用本身不附带任何影视素材。")
-                .font(.system(size: 10))
+                .font(Theme.font(size: 10))
                 .foregroundStyle(Theme.secondaryText)
         }
         .padding(.top, 4)

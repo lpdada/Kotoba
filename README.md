@@ -33,6 +33,7 @@
 | 字幕导入 | `SubtitleParser` 解析 SRT / VTT（BOM、CRLF、序号行、`-->` 后位置参数、`<i>` 标签、ASS 覆盖标记、HTML 实体、重复滚动字幕），`SubtitleClipBuilder` 按「每段句数 / 最长秒数」切片；视频文件名留空自动匹配同名媒体，否则用朗读演示 |
 | 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
 | 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
+| 无障碍 | 全量 Dynamic Type（字号→系统文字样式映射，>26 pt 用 `@ScaledMetric`；视图层零硬编码字号）、VoiceOver 标签/hint/值与 `.isHeader`/`.isSelected` 语义、非颜色第二通道（熟悉度下划线、文字化的等级与评分）、尊重「减弱动态效果」 |
 | 逐句精听 | 片段页「精听」入口：按 `line_timings` 或字符数切句，逐句播放、上/下一句、点句跳转、A-B 循环、句末暂停、重复 1–3 次、倍速 0.5–1.5x；退出后恢复原区间与循环 |
 | 汉字层 | 内置 2,387 个常用漢字/JLPT 汉字（KANJIDIC2）：读音、笔画、部首、学年、拼音、英文释义、N5+N4 中文释义；详情页列出例词（从词典自动筛选）。可在「生词 › 汉字」按等级/部首浏览与搜索，也可从点词卡片或词条页的汉字入口直接打开 |
 | 汉字复习 | 汉字卡与生词卡共用同一套 `SpacedRepetition` 与四档评分；复习队列里与生词、整句混合出现，卡片正面是汉字、背面是读音+意思+例词 |
@@ -183,6 +184,7 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
 - 未做后台播放、锁屏控制、通知提醒。
 - 精听模式对 YouTube 片段用本地朗读演示（内嵌播放器无法逐句 seek），只有本地/网络视频文件走真实音轨。
 - 汉字笔顺**尚未实现**：KanjiVG 全量数据体积过大，本轮不做半成品渲染，界面上不显示任何未经验证的笔顺，留待下一轮。
+- **无障碍只在代码层验证**：本机没有 Xcode/模拟器，VoiceOver 的实际朗读、200% 字号下的真实排版、Voice Control 均未在设备上确认；`Tools/check_accessibility.py` 只能保证「没有硬编码字号、纯图标按钮有标签、图表有数值、颜色有第二通道、Reduce Motion 已接」这些结构性不变量。
 - 汉字中文释义只覆盖 N5+N4（284 字，人工核对）：KANJIDIC2 本身只有英/西/法/葡释义，其余字显示带标注的英文原义，不做机器翻译。
 - 跟读录音需要麦克风权限；录音文件只在本机 `Documents/Shadowing`，不会随备份导出（备份只含文字记录与文件名）。
 - 视频只支持单文件本地播放或 YouTube 内嵌；不做离线下载。
@@ -264,6 +266,11 @@ entries: 11794
   PASS  kanji card reuses the 1-minute step — 1.0 min；graduates to a day
   PASS  kanji cards join the review queue；kanji stats per level；learned kanji counted
   PASS  kanji cards survive a backup round trip
+== accessibility: typography scale ==
+  PASS  small sizes map to caption styles；body size maps to body
+  PASS  large display sizes map to title styles；mapping never decreases as size grows
+  PASS  display sizes use @ScaledMetric path — threshold 26.0
+OK: no hardcoded font sizes; 80 buttons checked (glyph-only ones labelled); charts expose values; colour has a second channel; Reduce Motion honoured
 ALL CHECKS PASSED
 ```
 

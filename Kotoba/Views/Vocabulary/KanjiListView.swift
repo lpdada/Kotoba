@@ -64,20 +64,20 @@ struct KanjiListView: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(app.kanjiLearnedCount)")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        .scaledFont(34, relativeTo: .title, weight: .semibold, design: .rounded)
                         .foregroundStyle(Theme.ink)
                     Text("已经熟悉的汉字 ・ 复习中 \(app.kanjiCards.count) ・ 待复习 \(app.kanjiDueCount)")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 Text("共 \(app.kanji.count) 字")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(Theme.font(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.accent)
             }
             if app.kanjiCards.isEmpty {
                 Text("在汉字详情里点「加入汉字复习」，它就会和生词一起进入复习队列。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -89,9 +89,10 @@ struct KanjiListView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.secondaryText)
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
             TextField("搜索汉字、拼音、读音或意思", text: $query)
-                .font(.system(size: 14))
+                .accessibilityLabel(Text("搜索汉字"))
+                .font(Theme.font(size: 14))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if !query.isEmpty {
@@ -159,7 +160,8 @@ struct KanjiListView: View {
                 .card()
             } else {
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6),
+                    // Adaptive instead of a fixed six columns so 200% text still fits.
+                    columns: [GridItem(.adaptive(minimum: 54), spacing: 6)],
                     spacing: 6
                 ) {
                     ForEach(shown) { entry in
@@ -175,7 +177,7 @@ struct KanjiListView: View {
                     Button("再显示 \(min(120, entries.count - shown.count)) 个") {
                         visibleCount += 120
                     }
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(Theme.font(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -188,10 +190,10 @@ struct KanjiListView: View {
         let card = app.kanjiCard(entry.literal)
         return VStack(spacing: 2) {
             Text(entry.literal)
-                .font(.system(size: 22, weight: .medium, design: .serif))
+                .font(Theme.font(size: 22, weight: .medium, design: .serif))
                 .foregroundStyle(card != nil ? Theme.familiarityColor(card?.familiarity ?? 1) : Theme.ink)
             Text(entry.meaningSummary)
-                .font(.system(size: 8))
+                .font(Theme.font(size: 8))
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -201,6 +203,18 @@ struct KanjiListView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Theme.hairline, lineWidth: 1)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilityText(entry, card: card)))
+        .accessibilityHint(Text("双击打开汉字详情"))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func accessibilityText(_ entry: KanjiEntry, card: KanjiCard?) -> String {
+        var parts = ["汉字 \(entry.literal)", entry.meaningSummary, entry.levelLabel]
+        if let card {
+            parts.append("熟悉度 \(card.familiarity)，\(SpacedRepetition.familiarityTitle(card.familiarity))")
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: "，")
     }
 
     private var resultList: some View {
@@ -219,22 +233,22 @@ struct KanjiListView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Text(entry.literal)
-                                .font(.system(size: 24, design: .serif))
+                                .font(Theme.font(size: 24, design: .serif))
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 30)
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 6) {
                                     Text(entry.meaningSummary)
-                                        .font(.system(size: 13))
+                                        .font(Theme.font(size: 13))
                                         .foregroundStyle(Theme.ink)
                                     if !entry.pinyin.isEmpty {
                                         Text(entry.pinyin)
-                                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                                            .font(Theme.font(size: 10, weight: .medium, design: .rounded))
                                             .foregroundStyle(Theme.accent)
                                     }
                                 }
                                 Text(entry.onReadings.prefix(2).joined(separator: "、"))
-                                    .font(.system(size: 10))
+                                    .font(Theme.font(size: 10))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                             Spacer()
@@ -245,6 +259,8 @@ struct KanjiListView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(accessibilityText(entry, card: app.kanjiCard(entry.literal))))
+                    .accessibilityHint(Text("双击打开汉字详情"))
                     if index < searchResults.count - 1 {
                         Hairline().padding(.leading, 52)
                     }

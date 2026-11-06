@@ -35,7 +35,7 @@
 | **P0-3** | 只有「现在到期多少」，看不到未来负载，容易堆积成几百张 | Anki 的每日上限设计、jpdb 的积压处理建议 | 间隔重复最常见的失败模式是负载失控；需要提前看见并调节 | ✅ 本轮完成 |
 | **P1-1** | 只有整段循环，没有逐句精听/跟读 | asbplayer 的 auto-pause / repeat / condensed 模式 | 听力与口语是当前完全缺失的训练维度 | ✅ 第二轮完成 |
 | **P1-2** | 没有任何汉字层（部首、音训读、笔画、例词） | WaniKani 的科目模型、Yomitan 的笔顺与汉字页 | 日语学习中汉字是独立知识体系，词汇卡片无法替代 | ✅ 第三轮完成（笔顺未接入，见 P2-7） |
-| **P1-3** | 全部字号写死为 `.system(size:)`，不支持 Dynamic Type，颜色承担了唯一语义 | Apple HIG：正文需可放大 ≥200%，不能只靠颜色 | 现在是无障碍不合格，而不是「体验稍差」 | 下一轮 |
+| **P1-3** | 全部字号写死为 `.system(size:)`，不支持 Dynamic Type，颜色承担了唯一语义 | Apple HIG：正文需可放大 ≥200%，不能只靠颜色 | 现在是无障碍不合格，而不是「体验稍差」 | ✅ 第四轮完成（设备验证待 CI/真机） |
 | **P1-4** | 没有语法点条目与语法复习（只有逐句语法分析） | LingoDeer 的语法主线课程；Anki 的 cloze 卡片形态 | 语法知识点的复现频率远低于词汇，需要独立队列 | 下一轮 |
 | **P2-1** | 复习只做「看→评」，没有输入式回忆（听写、打字） | Tofugu：输入答案 > 选择题 | 主动回忆强度直接决定记忆效率 | 待排期 |
 | **P2-2** | 动机设计只有连续天数 + 成就，没有周目标/断签保护 | Anki 的负载上限、WaniKani 的等级推进 | 长期坚持靠的是「可控的每日目标」而非奖励徽章 | 待排期 |
@@ -76,3 +76,12 @@
 4. **复习**：汉字卡复用 `SpacedRepetition` 与四档评分，与生词、整句同队列；复习页用标签区分卡种。
 5. **统计**：进步页新增按 JLPT 分档的汉字进度条；生词页显示已熟悉/复习中的汉字数。
 6. **未做**：KanjiVG 笔顺（体积过大，不做半成品）——记为 P2-7。
+
+## 8. 第四轮实现范围（P1-3）
+
+1. **Dynamic Type**：`Model/AccessibilityMetrics.swift` 定义 `FontScale`（尺寸 → 系统文字样式映射，单调不减；>26 pt 走 `@ScaledMetric` 保留设计尺寸）。`Theme.font(size:weight:design:)` 与 `View.scaledFont(...)` 成为唯一入口，**343 处** `.system(size:)` 全部改为可缩放写法，视图层零硬编码字号（由 `Tools/check_accessibility.py` 强制）。
+2. **VoiceOver**：80 个 `Button` 逐一检查，纯图标按钮全部补 `accessibilityLabel` + hint；卡片/行用 `.combine` 合成整句；进度环、热力图、复习预测柱、熟悉度分布补 `accessibilityValue`；SectionHeader 标记 `.isHeader`；装饰性画面 `.accessibilityHidden(true)`；Chip 与句子列表在选中时带 `.isSelected`。
+3. **非颜色第二通道**：字幕词按熟悉度加**下划线**（生疏=实线、眼熟=点线、熟悉无标记）；等级、熟悉度、评分、难度一律有文字；图表数字始终可见。
+4. **Reduce Motion**：生成画面（TimelineView 停止推进）、复习卡翻面动画、进度环动画三处尊重系统设置。
+5. **大字号布局**：字幕区最大高度、汉字网格列数（改自适应）、生词释义行数随 `dynamicTypeSize` 变化。
+6. **未做/未验证**：VoiceOver 实际朗读、200% 字号下的真机布局、Voice Control/Switch Control 均未在设备上验证（本机无 Xcode），只做代码层检查与结构性断言。

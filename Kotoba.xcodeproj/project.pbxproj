@@ -11,6 +11,7 @@
 		0E7F6058ECB3FEEF56576723 /* KotobaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00E4EE17AA39D21CFE42F49 /* KotobaApp.swift */; };
 		B900CC344C2DEEBF4A9A6EB3 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A877EB6AEB88F7EC114B13 /* OnboardingView.swift */; };
 		8EB092CEF87A3CF836A032A1 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F9707B99856AE83C4FAB10 /* RootView.swift */; };
+		B4011476A77C550021BC0453 /* AccessibilityMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB1373B22D777669CD2BC94 /* AccessibilityMetrics.swift */; };
 		D257CA01047C96BB903E5999 /* Clip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E0ABD824372E8B847EBB3B7 /* Clip.swift */; };
 		A2B44B4E4D47B51E18D08735 /* KanjiModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */; };
 		796539143332C54C3FB0938F /* LanguageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */; };
@@ -65,6 +66,7 @@
 		E00E4EE17AA39D21CFE42F49 /* KotobaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KotobaApp.swift; sourceTree = "<group>"; };
 		A7A877EB6AEB88F7EC114B13 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C0F9707B99856AE83C4FAB10 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		BBB1373B22D777669CD2BC94 /* AccessibilityMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityMetrics.swift; sourceTree = "<group>"; };
 		9E0ABD824372E8B847EBB3B7 /* Clip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clip.swift; sourceTree = "<group>"; };
 		B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiModels.swift; sourceTree = "<group>"; };
 		A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageModels.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 		1C4E641CE653F0A0C006AD67 /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				BBB1373B22D777669CD2BC94 /* AccessibilityMetrics.swift */,
 				9E0ABD824372E8B847EBB3B7 /* Clip.swift */,
 				B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */,
 				A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */,
@@ -367,6 +370,7 @@
 				0E7F6058ECB3FEEF56576723 /* KotobaApp.swift in Sources */,
 				B900CC344C2DEEBF4A9A6EB3 /* OnboardingView.swift in Sources */,
 				8EB092CEF87A3CF836A032A1 /* RootView.swift in Sources */,
+				B4011476A77C550021BC0453 /* AccessibilityMetrics.swift in Sources */,
 				D257CA01047C96BB903E5999 /* Clip.swift in Sources */,
 				A2B44B4E4D47B51E18D08735 /* KanjiModels.swift in Sources */,
 				796539143332C54C3FB0938F /* LanguageModels.swift in Sources */,
@@ -527,7 +531,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -536,7 +540,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -550,7 +554,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -559,7 +563,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

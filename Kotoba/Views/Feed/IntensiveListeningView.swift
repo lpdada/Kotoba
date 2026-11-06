@@ -61,17 +61,17 @@ struct IntensiveListeningView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(clip.title)
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .font(Theme.font(size: 16, weight: .semibold, design: .serif))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
                     Text(usesMedia ? "逐句播放：从当前句的时间点起播" : "无媒体素材：用本地朗读逐句练习")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 if !sentences.isEmpty {
                     Text("\(engine.currentIndex + 1)/\(sentences.count)")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(Theme.font(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.accent)
                 }
             }
@@ -96,7 +96,7 @@ struct IntensiveListeningView: View {
                 HStack {
                     TagLabel(text: "第 \(sentence.index + 1) 句", tint: Theme.accent)
                     Text("\(sentence.timeLabel) ・ \(String(format: "%.1f", sentence.duration)) 秒")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                     Spacer()
                     if engine.isAwaitingUser {
@@ -120,12 +120,12 @@ struct IntensiveListeningView: View {
 
                 if !app.profile.furiganaEnabled {
                     Text("振假名已在设置里关闭")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
             } else {
                 Text("这条片段没有可练习的句子。")
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -165,7 +165,7 @@ struct IntensiveListeningView: View {
 
             HStack(spacing: 8) {
                 Text("重复")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                 ForEach(1...3, id: \.self) { count in
                     Chip(text: "\(count) 次", isSelected: engine.repeatTarget == count) {
@@ -174,13 +174,13 @@ struct IntensiveListeningView: View {
                 }
                 Spacer()
                 Text(engine.repeatLabel)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(Theme.font(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.accent)
             }
 
             HStack(spacing: 8) {
                 Text("速度")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                 Slider(
                     value: Binding(
@@ -195,13 +195,13 @@ struct IntensiveListeningView: View {
                 )
                 .tint(Theme.accent)
                 Text(String(format: "%.2fx", app.profile.playbackRate))
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(Theme.font(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.secondaryText)
                     .frame(width: 44, alignment: .trailing)
             }
 
             Text(statusLine)
-                .font(.system(size: 11))
+                .font(Theme.font(size: 11))
                 .foregroundStyle(Theme.secondaryText)
         }
         .card()
@@ -220,9 +220,9 @@ struct IntensiveListeningView: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: system)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(Theme.font(size: 15, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 9))
+                    .font(Theme.font(size: 9))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
@@ -230,6 +230,17 @@ struct IntensiveListeningView: View {
             .foregroundStyle(Theme.accent)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(transportHint(title)))
+    }
+
+    private func transportHint(_ title: String) -> String {
+        switch title {
+        case "上一句": return "回到上一句并重新播放"
+        case "下一句": return "跳到下一句并播放"
+        case "重放": return "从本句开头重新播放"
+        default: return isPlaying ? "暂停逐句播放" : "播放当前句"
+        }
     }
 
     // MARK: Sentence list
@@ -238,7 +249,7 @@ struct IntensiveListeningView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "句子列表", subtitle: "点任意一句跳转播放")
             if sentences.isEmpty {
-                Text("没有句子。").font(.system(size: 12)).foregroundStyle(Theme.secondaryText)
+                Text("没有句子。").font(Theme.font(size: 12)).foregroundStyle(Theme.secondaryText)
             } else {
                 VStack(spacing: 0) {
                     ForEach(sentences) { sentence in
@@ -249,17 +260,17 @@ struct IntensiveListeningView: View {
                         } label: {
                             HStack(alignment: .top, spacing: 8) {
                                 Text("\(sentence.index + 1)")
-                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .font(Theme.font(size: 10, weight: .semibold, design: .rounded))
                                     .foregroundStyle(sentence.index == engine.currentIndex ? Theme.accent : Theme.secondaryText)
                                     .frame(width: 18, alignment: .trailing)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(sentence.japanese)
-                                        .font(.system(size: 13, design: .serif))
+                                        .font(Theme.font(size: 13, design: .serif))
                                         .foregroundStyle(Theme.ink)
                                         .multilineTextAlignment(.leading)
                                     if let translation = sentence.translation {
                                         Text(translation)
-                                            .font(.system(size: 10))
+                                            .font(Theme.font(size: 10))
                                             .foregroundStyle(Theme.secondaryText)
                                             .lineLimit(1)
                                     }
@@ -267,7 +278,7 @@ struct IntensiveListeningView: View {
                                 Spacer(minLength: 0)
                                 if sentence.index == engine.currentIndex {
                                     Image(systemName: "waveform")
-                                        .font(.system(size: 11))
+                                        .font(Theme.font(size: 11))
                                         .foregroundStyle(Theme.accent)
                                 }
                             }
@@ -279,6 +290,9 @@ struct IntensiveListeningView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("第 \(sentence.index + 1) 句：\(sentence.japanese)"))
+                        .accessibilityValue(Text(sentence.index == engine.currentIndex ? "当前句" : ""))
+                        .accessibilityAddTraits(sentence.index == engine.currentIndex ? [.isButton, .isSelected] : .isButton)
                     }
                 }
             }
@@ -297,7 +311,7 @@ struct IntensiveListeningView: View {
                     withAnimation(.easeInOut(duration: 0.2)) { showShadowPanel.toggle() }
                 } label: {
                     Image(systemName: showShadowPanel ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(Theme.font(size: 11, weight: .semibold))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .buttonStyle(.plain)
@@ -312,7 +326,7 @@ struct IntensiveListeningView: View {
                             recorder.isRecording ? "停止录音" : "录音",
                             systemImage: recorder.isRecording ? "stop.circle.fill" : "record.circle"
                         )
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(Theme.font(size: 13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .background(
@@ -322,12 +336,13 @@ struct IntensiveListeningView: View {
                         .foregroundStyle(recorder.isRecording ? Theme.rose : Theme.accent)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint(Text(recorder.isRecording ? "停止并保存这次录音" : "录下你的跟读，之后可以和原句对比"))
 
                     Button {
                         playOriginal()
                     } label: {
                         Label("听原句", systemImage: "speaker.wave.2")
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -341,7 +356,7 @@ struct IntensiveListeningView: View {
                         playRecording()
                     } label: {
                         Label("听我的", systemImage: "mic")
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -349,12 +364,13 @@ struct IntensiveListeningView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(currentRecording() == nil)
+                    .accessibilityHint(Text("播放你刚才的录音"))
 
                     Button {
                         compare()
                     } label: {
                         Label("对比播放", systemImage: "arrow.left.arrow.right")
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -365,19 +381,19 @@ struct IntensiveListeningView: View {
 
                 if recorder.isRecording {
                     Text(String(format: "录音中… %.1f 秒", recorder.elapsed))
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(Theme.font(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.rose)
                 }
 
                 if case .failed(let message) = recorder.phase {
                     Text(message)
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.rose)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if permissionDenied {
                     Text("没有麦克风权限：请在 系统设置 › 隐私与安全性 › 麦克风 里允许 Kotoba。")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.rose)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -389,14 +405,14 @@ struct IntensiveListeningView: View {
                             tint: latestRecord.rating == .gotIt ? Theme.jade : Theme.amber
                         )
                         Text("上次：\(latestRecord.rating.title) ・ \(String(format: "%.1f", latestRecord.durationSeconds)) 秒")
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                         Spacer()
                         Button {
                             app.speech.speak(engine.current?.japanese ?? "", rate: app.profile.speechRate)
                         } label: {
                             Image(systemName: "speaker.wave.1")
-                                .font(.system(size: 12))
+                                .font(Theme.font(size: 12))
                                 .foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
@@ -408,7 +424,7 @@ struct IntensiveListeningView: View {
                 if pendingRecording != nil {
                     HStack(spacing: 8) {
                         Text("这次跟读怎么样？")
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                         Spacer()
                         Chip(text: "跟上了", isSelected: false, tint: Theme.jade) {

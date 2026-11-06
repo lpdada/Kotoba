@@ -111,9 +111,8 @@ final class ReviewSessionModel: ObservableObject {
 
     func flip() {
         guard phase == .reviewing else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-            isFlipped.toggle()
-        }
+        // No implicit animation here: the view decides based on Reduce Motion.
+        isFlipped.toggle()
     }
 
     func rate(_ rating: ReviewRating) {

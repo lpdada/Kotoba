@@ -151,25 +151,29 @@ struct SettingsView: View {
             ))
             VStack(alignment: .leading, spacing: 4) {
                 Text("视频速度 \(String(format: "%.2fx", app.profile.playbackRate))")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                 Slider(value: Binding(
                     get: { app.profile.playbackRate },
                     set: { value in app.updateProfile { $0.playbackRate = value } }
                 ), in: 0.5...1.5, step: 0.05)
                 .tint(Theme.accent)
+                .accessibilityLabel(Text("视频速度"))
+                .accessibilityValue(Text(String(format: "%.2f 倍", app.profile.playbackRate)))
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("朗读速度 \(String(format: "%.2f", app.profile.speechRate))")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                 Slider(value: Binding(
                     get: { app.profile.speechRate },
                     set: { value in app.updateProfile { $0.speechRate = value } }
                 ), in: 0.3...0.62, step: 0.02)
                 .tint(Theme.accent)
+                .accessibilityLabel(Text("朗读速度"))
+                .accessibilityValue(Text(String(format: "%.2f", app.profile.speechRate)))
             }
             if !app.speech.hasJapaneseVoice {
                 Text("没有检测到日语语音包，可在 系统设置 › 辅助功能 › 朗读内容 中下载。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.rose)
             }
         }
@@ -210,14 +214,14 @@ struct SettingsView: View {
                             $0.aiModel = modelDraft
                         }
                     }
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(Theme.font(size: 13, weight: .semibold))
 
                     Spacer()
 
                     Button(isTesting ? "测试中…" : "测试连接") {
                         Task { await testConnection() }
                     }
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .disabled(isTesting || !app.aiKeyStored)
                 }
             }
@@ -258,6 +262,7 @@ struct SettingsView: View {
             } label: {
                 Label("导出 Anki 卡片 (TSV)", systemImage: "square.and.arrow.up.on.square")
             }
+            .accessibilityHint(Text("生成 5 列制表符文件，可在 Anki 里导入"))
             if let ankiURL {
                 ShareLink(item: ankiURL) {
                     Label("分享 Anki 文件", systemImage: "square.and.arrow.up")

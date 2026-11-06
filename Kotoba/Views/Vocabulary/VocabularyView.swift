@@ -5,6 +5,7 @@ struct VocabularyView: View {
     @State private var searchText = ""
     @State private var mode: Mode = .notebook
     @State private var filter: Filter = .all
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     enum Mode: String, CaseIterable, Identifiable {
         case notebook, dictionary
@@ -76,27 +77,27 @@ struct VocabularyView: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(app.knownWordCount)")
-                        .font(.system(size: 38, weight: .semibold, design: .rounded))
+                        .scaledFont(38, relativeTo: .title, weight: .semibold, design: .rounded)
                         .foregroundStyle(Theme.ink)
                     Text("已经熟悉的词 ・ 共 \(app.words.count) 个")
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(app.learningWordCount)")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(Theme.font(size: 20, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.accent)
                     Text("学习中")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(app.dueReviewCount())")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(Theme.font(size: 20, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.rose)
                     Text("待复习")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -110,13 +111,16 @@ struct VocabularyView: View {
                             .frame(height: 4)
                             .opacity(count > 0 ? 1 : 0.25)
                         Text("\(count)")
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .font(Theme.font(size: 9, weight: .medium, design: .rounded))
                             .foregroundStyle(Theme.secondaryText)
                     }
                 }
             }
         }
         .card()
+        .a11yCombine(
+            "生词概览：已熟悉 \(app.knownWordCount) 个，共 \(app.words.count) 个，学习中 \(app.learningWordCount) 个，待复习 \(app.dueReviewCount()) 个"
+        )
     }
 
     private var kanjiEntryRow: some View {
@@ -125,21 +129,21 @@ struct VocabularyView: View {
         } label: {
             HStack(spacing: 12) {
                 Text("漢")
-                    .font(.system(size: 20, weight: .medium, design: .serif))
+                    .font(Theme.font(size: 20, weight: .medium, design: .serif))
                     .frame(width: 34, height: 34)
                     .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                     .foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("汉字")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.font(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.ink)
                     Text("已熟悉 \(app.kanjiLearnedCount) ・ 复习中 \(app.kanjiCards.count) ・ 共 \(app.kanji.count) 字")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.secondaryText)
             }
             .padding(12)
@@ -149,6 +153,10 @@ struct VocabularyView: View {
             )
         }
         .buttonStyle(.plain)
+        .a11yButton(
+            "汉字表，已熟悉 \(app.kanjiLearnedCount) 个，复习中 \(app.kanjiCards.count) 个，共 \(app.kanji.count) 字",
+            hint: "按等级或部首浏览，也可以搜索"
+        )
     }
 
     private var modePicker: some View {
@@ -164,9 +172,10 @@ struct VocabularyView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.secondaryText)
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
             TextField("搜索日语词、假名或英文释义", text: $searchText)
-                .font(.system(size: 14))
+                .accessibilityLabel(Text("搜索生词"))
+                .font(Theme.font(size: 14))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if !searchText.isEmpty {
@@ -266,10 +275,10 @@ struct VocabularyView: View {
             if searchText.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("试试搜索「映画」「たべる」「友達」")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                     Text("共 \(app.dictionary.entries.count) 条词条，覆盖 JLPT N5–N1 与常用功能词。")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .card()
@@ -309,13 +318,13 @@ struct WordRow: View {
                     .fill(Theme.familiarityColor(word.familiarity).opacity(0.16))
                     .frame(width: 30, height: 30)
                 Text("\(word.familiarity)")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(Theme.font(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.familiarityColor(word.familiarity))
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(word.word)
-                        .font(.system(size: 17, weight: .medium, design: .serif))
+                        .font(Theme.font(size: 17, weight: .medium, design: .serif))
                         .foregroundStyle(Theme.ink)
                     LevelBadge(level: word.level)
                     if word.isIgnored {
@@ -324,27 +333,29 @@ struct WordRow: View {
                 }
                 if !word.reading.isEmpty {
                     Text(word.reading)
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 if !word.primaryMeaning.isEmpty {
                     Text(word.primaryMeaning)
-                        .font(.system(size: 11))
+                        .font(Theme.font(size: 11))
                         .foregroundStyle(Theme.secondaryText)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
                 }
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 3) {
                 FamiliarityBadge(level: word.familiarity, compact: true)
                 Text(word.dueDescription)
-                    .font(.system(size: 9))
+                    .font(Theme.font(size: 9))
                     .foregroundStyle(word.isDue ? Theme.rose : Theme.secondaryText)
             }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(word.word)，\(word.reading)，\(word.primaryMeaning)，熟悉度 \(word.familiarity)，\(word.dueDescription)"))
     }
 }
 
@@ -358,15 +369,15 @@ struct DictionaryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.word)
-                        .font(.system(size: 16, weight: .medium, design: .serif))
+                        .font(Theme.font(size: 16, weight: .medium, design: .serif))
                         .foregroundStyle(Theme.ink)
                     LevelBadge(level: entry.level)
                 }
                 Text("\(entry.reading)・\(entry.posLabel)")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                 Text(entry.meanings.prefix(2).joined(separator: "; "))
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
             }
@@ -375,11 +386,15 @@ struct DictionaryRow: View {
                 onSave()
             } label: {
                 Image(systemName: isSaved ? "checkmark.circle.fill" : "plus.circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(Theme.font(size: 18, weight: .semibold))
                     .foregroundStyle(isSaved ? Theme.jade : Theme.accent)
             }
             .buttonStyle(.plain)
             .disabled(isSaved)
+            .a11yButton(
+                isSaved ? "已在生词本" : "加入生词本：\(entry.word)",
+                hint: "保存后进入间隔复习"
+            )
         }
         .padding(.vertical, 9)
         .padding(.horizontal, 14)

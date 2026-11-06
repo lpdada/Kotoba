@@ -13,6 +13,7 @@ struct ClipPageView: View {
     @State private var isSpeechPlaying = false
     @State private var appearedAt: Date?
     @State private var showIntensive = false
+    @ScaledMetric(relativeTo: .body) private var subtitleMaxHeight: CGFloat = 190
     @State private var resumeAfterIntensive = false
 
     var body: some View {
@@ -65,11 +66,13 @@ struct ClipPageView: View {
         switch clip.media {
         case .generated:
             GeneratedSceneView(seed: clip.id, isPlaying: isActive)
+                .a11yDecorative()
         case .localFile, .remote:
             if let mediaURL {
                 if player.isReady {
                     VideoSurface(player: player.player)
                         .ignoresSafeArea()
+                        .a11yDecorative()
                 } else {
                     ZStack {
                         GeneratedSceneView(seed: clip.id, isPlaying: false)
@@ -77,7 +80,7 @@ struct ClipPageView: View {
                             ProgressView().tint(.white)
                             if let failure = player.failure {
                                 Text(failure)
-                                    .font(.system(size: 11))
+                                    .font(Theme.font(size: 11))
                                     .foregroundStyle(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 30)
@@ -89,7 +92,7 @@ struct ClipPageView: View {
                 ZStack {
                     GeneratedSceneView(seed: clip.id, isPlaying: false)
                     Text("未找到媒体文件「\(mediaName)」\n把它放进 文件App › Kotoba › Media")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -118,10 +121,10 @@ struct ClipPageView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(clip.displaySeries)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(size: 11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.75))
                 Text(clip.title)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .font(Theme.font(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(.white)
                     .lineLimit(1)
             }
@@ -129,16 +132,22 @@ struct ClipPageView: View {
             HStack(spacing: 8) {
                 LevelBadge(level: analysis?.metrics.level ?? clip.level)
                     .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .accessibilityLabel(Text("片段难度 \((analysis?.metrics.level ?? clip.level)?.label ?? "未分级")"))
                 Button {
                     app.toggleSavedClip(clip)
                 } label: {
                     Image(systemName: app.savedClipIDs.contains(clip.id) ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.font(size: 14, weight: .semibold))
                         .foregroundStyle(app.savedClipIDs.contains(clip.id) ? Theme.amber : .white)
                         .padding(8)
                         .background(.black.opacity(0.28), in: Circle())
                 }
                 .buttonStyle(.plain)
+                .a11yButton(
+                    app.savedClipIDs.contains(clip.id) ? "取消收藏片段" : "收藏片段",
+                    hint: "收藏后在「我的」里能找到",
+                    value: app.savedClipIDs.contains(clip.id) ? "已收藏" : "未收藏"
+                )
             }
         }
     }
@@ -176,27 +185,27 @@ struct ClipPageView: View {
                     }
                     .padding(.bottom, 2)
                 }
-                .frame(maxHeight: 190)
+                .frame(maxHeight: subtitleMaxHeight)
             } else {
                 ProgressView().tint(.white)
             }
 
             HStack(spacing: 10) {
                 Text(clip.media.shortLabel)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.font(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
                 if !clip.attribution.isEmpty {
                     Text("·")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(.white.opacity(0.4))
                     Text(clip.attribution)
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(.white.opacity(0.5))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 Text("\(Int(clip.durationSeconds))s")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(Theme.font(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
             }
         }
@@ -237,16 +246,27 @@ struct ClipPageView: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(Theme.font(size: 17, weight: .semibold))
                     .frame(width: 42, height: 42)
                     .background(.black.opacity(0.3), in: Circle())
                     .foregroundStyle(.white)
                 Text(label)
-                    .font(.system(size: 9))
+                    .font(Theme.font(size: 9))
                     .foregroundStyle(.white.opacity(0.7))
             }
         }
         .buttonStyle(.plain)
+        .a11yButton(label, hint: railHint(for: label))
+    }
+
+    private func railHint(for label: String) -> String {
+        switch label {
+        case "精听": return "逐句播放并跟读"
+        case "重播": return "从这一段的开头重新播放"
+        case "整句": return "把这条字幕保存成整句卡片"
+        case "信息": return "查看片段难度、字幕与来源"
+        default: return "朗读这一段"
+        }
     }
 
     // MARK: Behaviour

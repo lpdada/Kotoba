@@ -22,7 +22,7 @@ struct DiagnosticsView: View {
                 .card(padded: false)
 
                 Text("自检只读取本地状态，不会写入生词本，也不联网（AI 连接测试在设置页单独触发）。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
             }
             .padding(18)
@@ -35,7 +35,7 @@ struct DiagnosticsView: View {
                 Button(isRunning ? "运行中…" : "重新运行") {
                     run()
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(size: 13, weight: .semibold))
                 .disabled(isRunning)
             }
         }
@@ -47,10 +47,10 @@ struct DiagnosticsView: View {
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(checks.isEmpty ? "尚未运行" : "\(passedCount) / \(checks.count) 项通过")
-                .font(.system(size: 20, weight: .semibold, design: .serif))
+                .font(Theme.font(size: 20, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
             Text("覆盖词典索引、动词还原、断词、复习算法、持久化与本地存储。")
-                .font(.system(size: 11))
+                .font(Theme.font(size: 11))
                 .foregroundStyle(Theme.secondaryText)
             if isRunning {
                 ProgressView().tint(Theme.accent)
@@ -62,14 +62,14 @@ struct DiagnosticsView: View {
     private func row(_ check: DiagnosticCheck) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: check.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 16))
+                .font(Theme.font(size: 16))
                 .foregroundStyle(check.passed ? Theme.jade : Theme.rose)
             VStack(alignment: .leading, spacing: 2) {
                 Text(check.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(Theme.font(size: 13, weight: .medium))
                     .foregroundStyle(Theme.ink)
                 Text(check.detail)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Theme.font(size: 10, design: .monospaced))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }

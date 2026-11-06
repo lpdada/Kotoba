@@ -18,7 +18,7 @@ struct DecksView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
                         Text("新建分组")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(Theme.font(size: 14, weight: .semibold))
                         Spacer()
                     }
                     .padding(14)
@@ -28,7 +28,7 @@ struct DecksView: View {
                 .buttonStyle(.plain)
 
                 Text("分组只是组织方式，所有词都会进入同一套间隔复习队列；每组的「每日新词」只影响复习排队时的取样量。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                     .padding(.top, 4)
             }
@@ -53,7 +53,7 @@ struct DecksView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(deck.name)
-                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .font(Theme.font(size: 17, weight: .semibold, design: .serif))
                             .foregroundStyle(Theme.ink)
                         if deck.id == Deck.defaultDeckID {
                             TagLabel(text: "默认", tint: Theme.accent)
@@ -61,7 +61,7 @@ struct DecksView: View {
                     }
                     if !deck.detail.isEmpty {
                         Text(deck.detail)
-                            .font(.system(size: 11))
+                            .font(Theme.font(size: 11))
                             .foregroundStyle(Theme.secondaryText)
                     }
                 }
@@ -70,10 +70,11 @@ struct DecksView: View {
                     editingDeck = deck
                 } label: {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 14))
+                        .font(Theme.font(size: 14))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 .buttonStyle(.plain)
+                .a11yButton("编辑分组 \(deck.name)", hint: "修改每日新词与复习上限")
             }
 
             HStack(spacing: 10) {
@@ -87,7 +88,7 @@ struct DecksView: View {
                     app.deleteDeck(deck)
                 } label: {
                     Text("删除分组")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Theme.font(size: 11, weight: .medium))
                         .foregroundStyle(Theme.rose)
                 }
                 .buttonStyle(.plain)
@@ -99,10 +100,10 @@ struct DecksView: View {
     private func infoPill(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 9))
+                .font(Theme.font(size: 9))
                 .foregroundStyle(Theme.secondaryText)
             Text(value)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(Theme.font(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(Theme.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

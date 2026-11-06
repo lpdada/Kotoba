@@ -85,11 +85,11 @@ struct FeedView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(size: 11, weight: .semibold))
                 Text(app.profile.level.label)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(Theme.font(size: 11, weight: .bold, design: .rounded))
                 Text("· \(app.profile.dailyGoalMinutes) 分钟目标")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -97,6 +97,10 @@ struct FeedView: View {
             .foregroundStyle(.white.opacity(0.9))
         }
         .buttonStyle(.plain)
+        .a11yButton(
+            "推荐设置，当前等级 \(app.profile.level.label)，每天 \(app.profile.dailyGoalMinutes) 分钟",
+            hint: "调整难度与兴趣标签，重新推荐片段"
+        )
         .padding(.leading, 16)
         .padding(.bottom, 132)
     }
@@ -150,7 +154,7 @@ struct FeedFilterSheet: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("播放速度 \(String(format: "%.1fx", app.profile.playbackRate))")
-                            .font(.system(size: 12))
+                            .font(Theme.font(size: 12))
                             .foregroundStyle(Theme.secondaryText)
                         Slider(
                             value: Binding(

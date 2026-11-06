@@ -62,16 +62,16 @@ struct KanjiDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 Text(entry.literal)
-                    .font(.system(size: 64, weight: .medium, design: .serif))
+                    .scaledFont(64, relativeTo: .title, weight: .medium, design: .serif)
                     .foregroundStyle(Theme.ink)
                 VStack(alignment: .leading, spacing: 4) {
                     if !entry.pinyin.isEmpty {
                         Text(entry.pinyin)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .font(Theme.font(size: 16, weight: .medium, design: .rounded))
                             .foregroundStyle(Theme.accent)
                     }
                     Text(entry.meaningSummary)
-                        .font(.system(size: 13))
+                        .font(Theme.font(size: 13))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(2)
                 }
@@ -81,7 +81,7 @@ struct KanjiDetailView: View {
                     app.speech.speak(entry.literal, rate: app.profile.speechRate)
                 } label: {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.font(size: 14, weight: .semibold))
                         .frame(width: 38, height: 38)
                         .background(Theme.accentSoft, in: Circle())
                         .foregroundStyle(Theme.accent)
@@ -100,6 +100,9 @@ struct KanjiDetailView: View {
             }
         }
         .card()
+        .a11yCombine(
+            "汉字 \(entry.literal)，拼音 \(entry.pinyin)，\(entry.levelLabel)，\(entry.strokes) 画，部首 \(entry.radicalGlyph)，\(entry.hasChineseGloss ? entry.chineseGloss : entry.meanings.joined(separator: "、"))"
+        )
     }
 
     // MARK: Readings
@@ -110,11 +113,11 @@ struct KanjiDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
                     Text("音读")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Theme.font(size: 11, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                         .frame(width: 34, alignment: .leading)
                     if entry.onReadings.isEmpty {
-                        Text("—").font(.system(size: 12)).foregroundStyle(Theme.secondaryText)
+                        Text("—").font(Theme.font(size: 12)).foregroundStyle(Theme.secondaryText)
                     } else {
                         TokenFlowLayout(spacing: 6, lineSpacing: 6) {
                             ForEach(entry.onReadings, id: \.self) { reading in
@@ -127,11 +130,11 @@ struct KanjiDetailView: View {
                 Hairline()
                 HStack(alignment: .top, spacing: 8) {
                     Text("训读")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Theme.font(size: 11, weight: .medium))
                         .foregroundStyle(Theme.secondaryText)
                         .frame(width: 34, alignment: .leading)
                     if entry.kunReadings.isEmpty {
-                        Text("—").font(.system(size: 12)).foregroundStyle(Theme.secondaryText)
+                        Text("—").font(Theme.font(size: 12)).foregroundStyle(Theme.secondaryText)
                     } else {
                         TokenFlowLayout(spacing: 6, lineSpacing: 6) {
                             ForEach(entry.kunReadings, id: \.self) { reading in
@@ -154,19 +157,19 @@ struct KanjiDetailView: View {
             SectionHeader(title: "意思", subtitle: entry.hasChineseGloss ? "中文释义 + 英文原义" : "英文原义（KANJIDIC2）")
             if entry.hasChineseGloss {
                 Text(entry.chineseGloss)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(Theme.font(size: 16, weight: .medium))
                     .foregroundStyle(Theme.ink)
             }
             VStack(alignment: .leading, spacing: 3) {
                 ForEach(Array(entry.meanings.enumerated()), id: \.offset) { _, meaning in
                     Text("· \(meaning)")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(entry.hasChineseGloss ? Theme.secondaryText : Theme.ink)
                 }
             }
             if !entry.hasChineseGloss {
                 Text("这个字还没有人工核对的中文释义，以免给出错误对应，这里保留英文原义；需要的话可以加进复习后在笔记里写自己的中文。")
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -182,7 +185,7 @@ struct KanjiDetailView: View {
             SectionHeader(title: "例词", subtitle: "从内置词典里挑出的常用词")
             if examples.isEmpty {
                 Text("词典里没有包含这个字的常用词。")
-                    .font(.system(size: 12))
+                    .font(Theme.font(size: 12))
                     .foregroundStyle(Theme.secondaryText)
             } else {
                 VStack(spacing: 0) {
@@ -191,17 +194,17 @@ struct KanjiDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 6) {
                                     Text(example.word)
-                                        .font(.system(size: 16, design: .serif))
+                                        .font(Theme.font(size: 16, design: .serif))
                                         .foregroundStyle(Theme.ink)
                                     if !example.reading.isEmpty, example.reading != example.word {
                                         Text(example.reading)
-                                            .font(.system(size: 11))
+                                            .font(Theme.font(size: 11))
                                             .foregroundStyle(Theme.secondaryText)
                                     }
                                     LevelBadge(level: example.level)
                                 }
                                 Text(example.meaning)
-                                    .font(.system(size: 11))
+                                    .font(Theme.font(size: 11))
                                     .foregroundStyle(Theme.secondaryText)
                                     .lineLimit(1)
                             }
@@ -210,7 +213,7 @@ struct KanjiDetailView: View {
                                 app.speech.speak(example.word, rate: app.profile.speechRate)
                             } label: {
                                 Image(systemName: "speaker.wave.1")
-                                    .font(.system(size: 12))
+                                    .font(Theme.font(size: 12))
                                     .foregroundStyle(Theme.accent)
                             }
                             .buttonStyle(.plain)
@@ -241,9 +244,9 @@ struct KanjiDetailView: View {
                         } label: {
                             VStack(spacing: 3) {
                                 Text(rating.title)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(Theme.font(size: 13, weight: .semibold))
                                 Text(SpacedRepetition.previewInterval(state: card.scheduling, rating: rating))
-                                    .font(.system(size: 9))
+                                    .font(Theme.font(size: 9))
                                     .foregroundStyle(Theme.secondaryText)
                             }
                             .frame(maxWidth: .infinity)
@@ -255,18 +258,20 @@ struct KanjiDetailView: View {
                             .foregroundStyle(Theme.ratingColor(rating))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("评分：\(rating.title)"))
+                        .accessibilityHint(Text("\(rating.hint)，下次约 \(SpacedRepetition.previewInterval(state: card.scheduling, rating: rating))后"))
                     }
                 }
                 HStack {
                     Text("第 \(card.scheduling.reviewCount) 次 ・ \(card.dueText)")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                     Spacer()
                     Button("移出复习") {
                         app.removeKanjiCard(card)
                         app.toast = "已移出汉字复习"
                     }
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.rose)
                     .buttonStyle(.plain)
                 }
@@ -275,7 +280,7 @@ struct KanjiDetailView: View {
                     app.saveKanjiCard(entry)
                 }
                 Text("加入后会像生词卡一样进入复习队列：正面是汉字，背面是读音、意思与例词。")
-                    .font(.system(size: 10))
+                    .font(Theme.font(size: 10))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
@@ -286,7 +291,7 @@ struct KanjiDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "我的笔记", subtitle: "写自己的记忆法或中文对应")
             TextEditor(text: $noteDraft)
-                .font(.system(size: 13))
+                .font(Theme.font(size: 13))
                 .frame(height: 80)
                 .scrollContentBackground(.hidden)
                 .padding(6)
@@ -298,7 +303,7 @@ struct KanjiDetailView: View {
                     app.updateKanjiCard(card)
                     app.toast = "笔记已保存"
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 Spacer()
             }

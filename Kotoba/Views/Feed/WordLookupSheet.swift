@@ -38,7 +38,7 @@ struct WordLookupSheet: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("查词")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.font(size: 14, weight: .semibold))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { dismiss() }
@@ -61,18 +61,18 @@ struct WordLookupSheet: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry?.word ?? surface)
-                        .font(.system(size: 30, weight: .semibold, design: .serif))
+                        .scaledFont(30, relativeTo: .title, weight: .semibold, design: .serif)
                         .foregroundStyle(Theme.ink)
                     HStack(spacing: 8) {
                         if let reading = entry?.reading, !reading.isEmpty {
                             Text(reading)
-                                .font(.system(size: 13))
+                                .font(Theme.font(size: 13))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         let romaji = entry?.romaji ?? token.romaji
                         if let romaji, !romaji.isEmpty {
                             Text(romaji)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(Theme.font(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(Theme.accent.opacity(0.8))
                         }
                     }
@@ -82,12 +82,13 @@ struct WordLookupSheet: View {
                     app.speech.speak(entry?.word ?? surface, rate: app.profile.speechRate)
                 } label: {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Theme.font(size: 15, weight: .semibold))
                         .frame(width: 42, height: 42)
                         .background(Theme.accentSoft, in: Circle())
                         .foregroundStyle(Theme.accent)
                 }
                 .buttonStyle(.plain)
+                .a11yButton("朗读\(entry?.word ?? surface)", hint: "用日语语音朗读这个词")
             }
 
             HStack(spacing: 6) {
@@ -104,6 +105,8 @@ struct WordLookupSheet: View {
             }
         }
         .card()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("词条 \(entry?.word ?? surface)"))
     }
 
     // MARK: Kanji
@@ -114,20 +117,21 @@ struct WordLookupSheet: View {
             if !characters.isEmpty {
                 HStack(spacing: 6) {
                     Text("汉字")
-                        .font(.system(size: 10))
+                        .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                     ForEach(characters) { kanjiEntry in
                         Button {
                             selectedKanji = KanjiSelection(literal: kanjiEntry.literal)
                         } label: {
                             Text(kanjiEntry.literal)
-                                .font(.system(size: 15, design: .serif))
+                                .font(Theme.font(size: 15, design: .serif))
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
                                 .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 .foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
+                        .a11yButton("汉字 \(kanjiEntry.literal) \(kanjiEntry.levelLabel)", hint: "打开汉字详情")
                     }
                     Spacer(minLength: 0)
                 }
@@ -145,11 +149,11 @@ struct WordLookupSheet: View {
                     ForEach(Array(entry.meanings.enumerated()), id: \.offset) { index, meaning in
                         HStack(alignment: .top, spacing: 8) {
                             Text("\(index + 1)")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .font(Theme.font(size: 11, weight: .bold, design: .rounded))
                                 .foregroundStyle(Theme.accent)
                                 .frame(width: 16)
                             Text(meaning)
-                                .font(.system(size: 14))
+                                .font(Theme.font(size: 14))
                                 .foregroundStyle(Theme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -158,7 +162,7 @@ struct WordLookupSheet: View {
                 .card()
             } else {
                 Text("没有匹配到词条。它可能是专有名词、口语缩略，或者需要按更长的词组来理解。")
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .foregroundStyle(Theme.secondaryText)
                     .card()
             }
@@ -181,28 +185,28 @@ struct WordLookupSheet: View {
                     HStack(spacing: 8) {
                         ProgressView().tint(Theme.accent)
                         Text("正在分析这句话…")
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .foregroundStyle(Theme.secondaryText)
                     }
                 } else if let explanation {
                     Text(explanation.headline)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(Theme.font(size: 14, weight: .medium))
                         .foregroundStyle(Theme.ink)
                     if !explanation.grammar.isEmpty {
                         Text(explanation.grammar)
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .foregroundStyle(Theme.ink.opacity(0.85))
                     }
                     if !explanation.nuance.isEmpty {
                         Text(explanation.nuance)
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .foregroundStyle(Theme.secondaryText)
                     }
                     Button {
                         Task { await regenerate() }
                     } label: {
                         Text(app.profile.aiEnabled ? "重新用 AI 解释" : "换一段本地分析")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Theme.font(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                     }
                     .buttonStyle(.plain)
@@ -211,7 +215,7 @@ struct WordLookupSheet: View {
                         Task { await generate() }
                     } label: {
                         Text("生成解释")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(Theme.font(size: 13, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -238,7 +242,7 @@ struct WordLookupSheet: View {
                                 fontSize: 16
                             )
                             Text(example.english)
-                                .font(.system(size: 12))
+                                .font(Theme.font(size: 12))
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -249,7 +253,7 @@ struct WordLookupSheet: View {
                     }
                 } else {
                     Text("这个条目还没有例句，可以先用视频里的原句记忆。")
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -270,10 +274,10 @@ struct WordLookupSheet: View {
                         ForEach(hits.prefix(4)) { hit in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(hit.title)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(Theme.font(size: 13, weight: .medium))
                                     .foregroundStyle(Theme.ink)
                                 Text(hit.transcript.replacingOccurrences(of: "\n", with: " / "))
-                                    .font(.system(size: 11, design: .serif))
+                                    .font(Theme.font(size: 11, design: .serif))
                                     .foregroundStyle(Theme.secondaryText)
                                     .lineLimit(2)
                             }
@@ -292,12 +296,12 @@ struct WordLookupSheet: View {
             SectionHeader(title: "原句", subtitle: clip?.title)
             VStack(alignment: .leading, spacing: 8) {
                 Text(sentence)
-                    .font(.system(size: 15, design: .serif))
+                    .font(Theme.font(size: 15, design: .serif))
                     .foregroundStyle(Theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 if let translation = clip?.translation, !translation.isEmpty {
                     Text(translation)
-                        .font(.system(size: 12))
+                        .font(Theme.font(size: 12))
                         .foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -316,7 +320,7 @@ struct WordLookupSheet: View {
                         app.speech.speak(savedWord.word, rate: app.profile.speechRate)
                     } label: {
                         Label("朗读", systemImage: "speaker.wave.1")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(Theme.font(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -329,7 +333,7 @@ struct WordLookupSheet: View {
                         self.savedWord = app.savedWord(id: savedWord.id)
                     } label: {
                         Label("已掌握", systemImage: "checkmark.seal")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(Theme.font(size: 13, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -347,7 +351,7 @@ struct WordLookupSheet: View {
                         Text(savedWord.note.isEmpty ? "添加笔记" : "编辑笔记")
                         Spacer()
                     }
-                    .font(.system(size: 13))
+                    .font(Theme.font(size: 13))
                     .padding(12)
                     .background(Theme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .foregroundStyle(Theme.secondaryText)
@@ -357,13 +361,13 @@ struct WordLookupSheet: View {
                 if showNoteEditor {
                     VStack(alignment: .leading, spacing: 8) {
                         TextEditor(text: $noteDraft)
-                            .font(.system(size: 13))
+                            .font(Theme.font(size: 13))
                             .frame(height: 80)
                             .padding(6)
                             .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         HStack {
                             Button("取消") { showNoteEditor = false }
-                                .font(.system(size: 12))
+                                .font(Theme.font(size: 12))
                                 .foregroundStyle(Theme.secondaryText)
                             Spacer()
                             Button("保存笔记") {
@@ -373,7 +377,7 @@ struct WordLookupSheet: View {
                                 self.savedWord = copy
                                 showNoteEditor = false
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Theme.font(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                         }
                     }
@@ -385,7 +389,7 @@ struct WordLookupSheet: View {
                     app.toast = "已移出生词本"
                 } label: {
                     Text("移出生词本")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(Theme.font(size: 13, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .background(Theme.rose.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -402,7 +406,7 @@ struct WordLookupSheet: View {
                     )
                 }
                 Text("保存后会自动进入间隔复习队列，默认间隔为 1 分钟。")
-                    .font(.system(size: 11))
+                    .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
             }
         }
