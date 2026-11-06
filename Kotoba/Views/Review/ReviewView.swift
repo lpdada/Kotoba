@@ -44,6 +44,7 @@ struct ReviewView: View {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
                 statsRow
+                forecastCard
                 queuePreview
                 sentenceCardsSection
                 if !showBulkIntervalHelp {
@@ -114,6 +115,41 @@ struct ReviewView: View {
             StatTile(title: "30 天记忆率", value: String(format: "%.0f%%", app.retention * 100), caption: "非「忘记」占比", tint: Theme.jade)
             StatTile(title: "新词库存", value: "\(app.newWordCount())", caption: "尚未复习", tint: Theme.lilac)
         }
+    }
+
+    private var forecastCard: some View {
+        let forecast = app.reviewForecast(days: 7)
+        let peak = max(forecast.map(\.due).max() ?? 0, 1)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                SectionHeader(title: "未来 7 天", subtitle: "每天预计到期的卡片数")
+                if app.overdueCount > 0 {
+                    TagLabel(text: "逾期 \(app.overdueCount)", tint: Theme.rose)
+                }
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(forecast) { day in
+                    VStack(spacing: 4) {
+                        Text("\(day.due)")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(day.due > 0 ? Theme.ink : Theme.secondaryText)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(day.isToday ? Theme.accent : Theme.accent.opacity(0.42))
+                            .frame(height: max(CGFloat(day.due) / CGFloat(peak) * 72, 3))
+                        Text(day.shortLabel)
+                            .font(.system(size: 9))
+                            .foregroundStyle(day.isToday ? Theme.accent : Theme.secondaryText)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 108, alignment: .bottom)
+
+            Text("逾期卡片已并入今天；想降低压力就调小分组的「每日复习上限」。")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.secondaryText)
+        }
+        .card()
     }
 
     private var queuePreview: some View {

@@ -95,6 +95,9 @@ struct Clip: Identifiable, Codable, Hashable {
     var level: JLPTLevel?
     var topics: [String]
     var durationSeconds: Double
+    /// Optional offset into the media file where this clip begins (subtitle imports).
+    /// Stored as an optional so older clip JSON that lacks the key still decodes.
+    var mediaStartSeconds: Double?
     var media: ClipMedia
     var attribution: String
     var custom: Bool
@@ -104,6 +107,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case translationEN = "translation_en"
         case level, topics
         case durationSeconds = "duration_seconds"
+        case mediaStartSeconds = "start_seconds"
         case media, attribution, custom
     }
 
@@ -118,6 +122,7 @@ struct Clip: Identifiable, Codable, Hashable {
         level: JLPTLevel? = nil,
         topics: [String] = [],
         durationSeconds: Double = 12,
+        mediaStartSeconds: Double? = nil,
         media: ClipMedia = .generated,
         attribution: String = "",
         custom: Bool = false
@@ -132,6 +137,7 @@ struct Clip: Identifiable, Codable, Hashable {
         self.level = level
         self.topics = topics
         self.durationSeconds = durationSeconds
+        self.mediaStartSeconds = mediaStartSeconds
         self.media = media
         self.attribution = attribution
         self.custom = custom
@@ -151,6 +157,9 @@ struct Clip: Identifiable, Codable, Hashable {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
     }
+
+    /// Playback start inside the media file.
+    var startSeconds: Double { mediaStartSeconds ?? 0 }
 
     var characterCount: Int { transcript.count }
 

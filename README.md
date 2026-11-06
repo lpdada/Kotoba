@@ -6,6 +6,8 @@
 
 ---
 
+> 改进路线与优先级见 [ROADMAP.md](ROADMAP.md)（调研来源、差距分析、本轮范围）。
+
 ## 1. 现在就能用的功能
 
 | 模块 | 实现 |
@@ -27,6 +29,10 @@
 | 学习数据 | 每日时长/复习数/遗忘数、连续天数、30–90 天热力图、熟悉度分布、记忆率、观看历史、词典覆盖统计 |
 | 成就 | 6 个本地计算成就（首个生词、25 词、100 次复习、连续 7 天、10 个片段、20 词熟悉） |
 | 内容导入 | 文件导入片段清单 JSON、导入视频/音频到 `Documents/Media`，可在「文件」App 直接拖放（`UIFileSharingEnabled`） |
+| YouTube 导入 | 粘贴链接或 11 位 ID（watch / youtu.be / shorts / embed / live），自动解析 `t=`、`start=`、`#t=` 起点；标题、日文字幕、中文翻译、等级、区间一并入库 |
+| 字幕导入 | `SubtitleParser` 解析 SRT / VTT（BOM、CRLF、序号行、`-->` 后位置参数、`<i>` 标签、ASS 覆盖标记、HTML 实体、重复滚动字幕），`SubtitleClipBuilder` 按「每段句数 / 最长秒数」切片；视频文件名留空自动匹配同名媒体，否则用朗读演示 |
+| 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
+| 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
 | 自检 | `Diagnostics` 在设备上跑 10 项真实检查：词典载入、精确查词、变形还原、断词完整性、调度阶梯、遗忘回退、间隔增长、状态往返、存储可写、素材库 |
 
 ## 2. 工程结构
@@ -39,7 +45,7 @@ kiku-ios/
 ├─ Kotoba/
 │  ├─ App/                    # 入口、RootView、AppModel（状态中枢）、引导页
 │  ├─ Model/                  # 语言模型、片段、词汇、调度、画像与快照
-│  ├─ Services/               # 词典、分词、变形、调度、复习会话、解释、播放、TTS、导入、自检
+│  ├─ Services/               # 词典、分词、变形、调度、复习会话、解释、播放、TTS、导入、字幕、备份、自检
 │  ├─ Views/                  # Feed / Vocabulary / Review / Progress / Settings / Components
 │  ├─ Resources/              # Dictionary.json、SampleClips.json、Assets.xcassets
 │  └─ Info.plist
@@ -120,6 +126,14 @@ python3 Tools/generate_project.py
 
 字幕一行一句（`\n` 分隔），`translation` 行数与之一一对应；分词、读音、词性全部运行时自动生成，不需要手工标注。
 
+### 直接用字幕文件（推荐）
+
+「内容管理 › 导入字幕（SRT / VTT）」：选一个字幕文件即可，按每段句数（1–6）与最长时长（4–40 秒）自动切片，媒体文件名留空时会自动找同名视频（`ep01.srt` → `ep01.mp4`），找不到就用朗读模式。每条片段会记住自己在该视频里的起始秒数（`start_seconds`），播放时从这句台词开始循环，而不是从视频 0 秒开始。重复导入同一文件不会产生重复片段。
+
+### 备份、恢复与 Anki
+
+「设置 › 数据」：`导出备份 (JSON)` 保存全部学习记录；`从备份恢复 (JSON)` 会在确认后用备份整体替换本地状态（媒体文件不动）；`导出 Anki 卡片 (TSV)` 生成 5 列制表符文件，可直接在 Anki 里以「制表符分隔」导入。
+
 ## 5. 核心算法说明
 
 **分词**：对字幕做动态规划，最小化整句总代价，而不是最大化得分——后者会让「一个真实词」输给「五个看起来像词的假字」。每个 token 的代价：
@@ -167,7 +181,7 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
 - 真机安装需自行配置签名团队；仓库不含描述文件。
 
 
-## 8. 验证记录
+## 7. 验证记录
 
 这台构建机是 Linux（没有 Xcode），所以工程用三层手段自证：
 
@@ -209,6 +223,17 @@ entries: 11794
   PASS  graduation to 1 day / again resets interval / again lowers ease
 == session + undo ==
   PASS  rating moved the card forward / undo restored the card / undo rewound the index
+== subtitle import ==
+  PASS  srt parsed  — 3 cues（重复滚动字幕已去重）
+  PASS  tags stripped / override blocks stripped / vtt cue settings ignored
+  PASS  builder groups cues  — 1 clips；builder id is stable — sub-ep01-mp4-1
+  PASS  builder records the cue offset — 1.0 s；clip json without start_seconds still decodes
+  PASS  importSubtitleCues adds clips — 1 added；repeat import is idempotent — 0 added
+== backup and interoperability ==
+  PASS  tsv has five columns；tsv sanitizes tabs and newlines — 1 row(s), 5 column(s)
+  PASS  backup round trip / empty backup rejected / newer schema rejected
+== review load forecast ==
+  PASS  today folds overdue cards — 2 today；day after tomorrow counted — 1 on day 3
 ALL CHECKS PASSED
 ```
 
@@ -217,7 +242,7 @@ ALL CHECKS PASSED
 
 仍然需要 Xcode 才能确认的部分：SwiftUI 视图层的类型检查与真机布局。视图层全部使用 iOS 17 的稳定 API（`scrollTargetBehavior`、`containerRelativeFrame`、`.onChange(of:_:)` 双参闭包、`MainActor.assumeIsolated`），没有使用 iOS 18 才有的接口。
 
-## 7. 许可
+## 8. 许可
 
 代码：MIT（见 `LICENSE`）。
 词典数据：CC BY-SA 4.0，来源与署名见 `ATTRIBUTION.md`。

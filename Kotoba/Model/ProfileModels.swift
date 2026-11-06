@@ -139,3 +139,21 @@ struct AppSnapshot: Codable {
     var explanations: [String: WordExplanation] = [:]
     var streakDayKeys: [String] = []
 }
+
+// MARK: - Review load forecast
+
+struct ForecastDay: Identifiable, Hashable {
+    let dayKey: String
+    let date: Date
+    let due: Int
+    let isToday: Bool
+
+    var id: String { dayKey }
+
+    var shortLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = isToday ? "今天" : "EE"
+        return formatter.string(from: date)
+    }
+}

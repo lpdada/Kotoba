@@ -26,6 +26,8 @@ FILES=(
   Kotoba/Services/ContextExplainer.swift
   Kotoba/Services/ClipLibrary.swift
   Kotoba/Services/ReviewSession.swift
+  Kotoba/Services/SubtitleImport.swift
+  Kotoba/Services/BackupService.swift
   Kotoba/App/AppModel.swift
   Tools/stubs/PlatformShim.swift
 )

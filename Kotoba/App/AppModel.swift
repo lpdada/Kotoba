@@ -684,11 +684,45 @@ final class AppModel: ObservableObject {
         if let existing = customClips.first(where: { $0.id == clip.id }) {
             return existing
         }
-        customClips.append(clip)
+        addCustomClips([clip])
+        return clip
+    }
+
+    /// Batch variant: one metrics rebuild and one save for a whole import.
+    @discardableResult
+    func addCustomClips(_ clips: [Clip]) -> Int {
+        var added = 0
+        for clip in clips where !customClips.contains(where: { $0.id == clip.id }) {
+            customClips.append(clip)
+            added += 1
+        }
+        guard added > 0 else { return 0 }
         library.setCustom(customClips)
         refreshMetrics()
         scheduleSave()
-        return clip
+        return added
+    }
+
+    /// Parses a subtitle file's text through the shared importer pipeline.
+    @discardableResult
+    func importSubtitleCues(
+        _ result: SubtitleParseResult,
+        mediaFileName: String,
+        series: String,
+        level: JLPTLevel?,
+        linesPerClip: Int,
+        maxSeconds: Double
+    ) -> Int {
+        var builder = SubtitleClipBuilder()
+        builder.linesPerClip = linesPerClip
+        builder.maxSeconds = maxSeconds
+        let clips = builder.build(
+            cues: result.cues,
+            mediaFileName: mediaFileName,
+            series: series,
+            level: level
+        )
+        return addCustomClips(clips)
     }
 
     func removeCustomClip(_ clip: Clip) {
@@ -707,6 +741,88 @@ final class AppModel: ObservableObject {
         }
         try FileManager.default.copyItem(at: url, to: destination)
         return url.lastPathComponent
+    }
+
+    // MARK: Backup, restore, interoperability
+
+    func restore(from url: URL) throws -> RestoreReport {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let data = try Data(contentsOf: url)
+        let snapshot = try BackupService.decodeSnapshot(from: data)
+        try BackupService.validate(snapshot)
+
+        apply(snapshot)
+        library.setCustom(customClips)
+        refreshMetrics()
+        reviewSession.reset()
+        flushSave()
+        return BackupService.report(for: snapshot)
+    }
+
+    func exportAnkiTSV() -> URL? {
+        let content = BackupService.ankiTSV(words: words, decks: decks)
+        guard !content.isEmpty else {
+            toast = "生词本为空，没有可导出的卡片"
+            return nil
+        }
+        let url = store.root.appendingPathComponent(BackupService.exportFileName())
+        do {
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            toast = "导出失败：\(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    // MARK: Review load forecast
+
+    /// Cards scheduled per day, with overdue cards folded into today.
+    func reviewForecast(days: Int = 7, now: Date = Date()) -> [ForecastDay] {
+        let calendar = Calendar.current
+        let todayKey = DayKey.key(for: now)
+        var buckets: [String: Int] = [:]
+
+        var dueDates: [Date] = []
+        for word in words where !word.isIgnored && !word.scheduling.isNew {
+            dueDates.append(word.scheduling.dueAt)
+        }
+        for card in sentenceCards {
+            dueDates.append(card.scheduling.dueAt)
+        }
+        for date in dueDates {
+            let effective = max(date, now)
+            let key = DayKey.key(for: effective)
+            buckets[key, default: 0] += 1
+        }
+
+        var result: [ForecastDay] = []
+        for offset in 0..<max(days, 1) {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { continue }
+            let key = DayKey.key(for: day)
+            result.append(
+                ForecastDay(
+                    dayKey: key,
+                    date: day,
+                    due: buckets[key] ?? 0,
+                    isToday: key == todayKey
+                )
+            )
+        }
+        return result
+    }
+
+    /// Cards that were due before today started.
+    var overdueCount: Int {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let wordOverdue = words.filter {
+            !$0.isIgnored && !$0.scheduling.isNew && $0.scheduling.dueAt < startOfToday
+        }.count
+        let sentenceOverdue = sentenceCards.filter { $0.scheduling.dueAt < startOfToday }.count
+        return wordOverdue + sentenceOverdue
     }
 
     // MARK: Data management

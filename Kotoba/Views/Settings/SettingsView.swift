@@ -10,6 +10,12 @@ struct SettingsView: View {
     @State private var showResetAlert = false
     @State private var isTesting = false
     @State private var exportURL: URL?
+    @State private var isRestoring = false
+    @State private var pendingRestoreURL: URL?
+    @State private var showRestoreConfirm = false
+    @State private var restoreError: String?
+    @State private var showRestoreError = false
+    @State private var ankiURL: URL?
 
     var body: some View {
         Form {
@@ -32,6 +38,31 @@ struct SettingsView: View {
             }
         } message: {
             Text("生词本、复习进度、观看记录与自建分组都会被删除，操作不可撤销。")
+        }
+        .fileImporter(
+            isPresented: $isRestoring,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                pendingRestoreURL = urls.first
+                showRestoreConfirm = pendingRestoreURL != nil
+            case .failure(let error):
+                restoreError = "选择文件失败：\(error.localizedDescription)"
+                showRestoreError = true
+            }
+        }
+        .confirmationDialog("用备份覆盖当前数据？", isPresented: $showRestoreConfirm, titleVisibility: .visible) {
+            Button("覆盖恢复", role: .destructive) { performRestore() }
+            Button("取消", role: .cancel) { pendingRestoreURL = nil }
+        } message: {
+            Text("现有生词、复习进度、分组与片段清单都会被备份内容替换；媒体文件不会被删除。")
+        }
+        .alert("恢复失败", isPresented: $showRestoreError) {
+            Button("好") { restoreError = nil }
+        } message: {
+            Text(restoreError ?? "未知错误")
         }
     }
 
@@ -212,7 +243,25 @@ struct SettingsView: View {
                     app.toast = "已导出到 \(url.lastPathComponent)"
                 }
             } label: {
-                Label("导出学习记录 (JSON)", systemImage: "arrow.down.doc")
+                Label("导出备份 (JSON)", systemImage: "arrow.down.doc")
+            }
+            Button {
+                isRestoring = true
+            } label: {
+                Label("从备份恢复 (JSON)", systemImage: "arrow.up.doc")
+            }
+            Button {
+                if let url = app.exportAnkiTSV() {
+                    ankiURL = url
+                    app.toast = "已导出 \(url.lastPathComponent)"
+                }
+            } label: {
+                Label("导出 Anki 卡片 (TSV)", systemImage: "square.and.arrow.up.on.square")
+            }
+            if let ankiURL {
+                ShareLink(item: ankiURL) {
+                    Label("分享 Anki 文件", systemImage: "square.and.arrow.up")
+                }
             }
             Button(role: .destructive) {
                 showResetAlert = true
@@ -249,6 +298,18 @@ struct SettingsView: View {
     }
 
     // MARK: Actions
+
+    private func performRestore() {
+        guard let url = pendingRestoreURL else { return }
+        pendingRestoreURL = nil
+        do {
+            let report = try app.restore(from: url)
+            app.toast = "已恢复：\(report.summary)"
+        } catch {
+            restoreError = error.localizedDescription
+            showRestoreError = true
+        }
+    }
 
     private func loadDrafts() {
         nameDraft = app.profile.displayName

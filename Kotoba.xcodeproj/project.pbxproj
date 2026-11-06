@@ -16,6 +16,7 @@
 		66F0CF21DF6C1CB5BB7E7133 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 280F2AADEE1D1F6701969D7F /* ProfileModels.swift */; };
 		F33CB26456A0C7567B9DE8E6 /* Scheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06226ED7ADC31950497A023C /* Scheduling.swift */; };
 		C7747E836E80B40C02ED508B /* VocabularyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE7FF85206358DC9ECA9732 /* VocabularyModels.swift */; };
+		0C0A7E3CCFD611B20B296A81 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF757C2DFB0CCCB2EC31537 /* BackupService.swift */; };
 		D5D9F0333BCEB6414B8F10B2 /* ClipLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C05F708ED955DCED25B653 /* ClipLibrary.swift */; };
 		E948EB4FA1C60355E30E479F /* ContextExplainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEEB60ECA57DEEC6B5C1E01E /* ContextExplainer.swift */; };
 		F8F61D5A898C705E98C0FC16 /* Deinflector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */; };
@@ -25,6 +26,7 @@
 		858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */; };
 		90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8588A61FB4C378F62A67BE /* ReviewSession.swift */; };
 		BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFC9527EB780565989BD136 /* SpeechService.swift */; };
+		88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD405D373EDA8E12541058F2 /* SubtitleImport.swift */; };
 		7C6947AD08E2E48BEC5512E8 /* Tokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5784A229DA54E6AE1A86E998 /* Tokenizer.swift */; };
 		EBBBAEB97CD5AFF18E98D26E /* VideoPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */; };
 		50C883C34C81C95F02C63EBD /* YouTubeEmbed.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */; };
@@ -60,6 +62,7 @@
 		280F2AADEE1D1F6701969D7F /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
 		06226ED7ADC31950497A023C /* Scheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scheduling.swift; sourceTree = "<group>"; };
 		0BE7FF85206358DC9ECA9732 /* VocabularyModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyModels.swift; sourceTree = "<group>"; };
+		ADF757C2DFB0CCCB2EC31537 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		C2C05F708ED955DCED25B653 /* ClipLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipLibrary.swift; sourceTree = "<group>"; };
 		AEEB60ECA57DEEC6B5C1E01E /* ContextExplainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextExplainer.swift; sourceTree = "<group>"; };
 		7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deinflector.swift; sourceTree = "<group>"; };
@@ -69,6 +72,7 @@
 		AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceStore.swift; sourceTree = "<group>"; };
 		7D8588A61FB4C378F62A67BE /* ReviewSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSession.swift; sourceTree = "<group>"; };
 		7FFC9527EB780565989BD136 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
+		AD405D373EDA8E12541058F2 /* SubtitleImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleImport.swift; sourceTree = "<group>"; };
 		5784A229DA54E6AE1A86E998 /* Tokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokenizer.swift; sourceTree = "<group>"; };
 		6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayback.swift; sourceTree = "<group>"; };
 		AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeEmbed.swift; sourceTree = "<group>"; };
@@ -172,6 +176,7 @@
 		856210407354788C94B2ED48 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				ADF757C2DFB0CCCB2EC31537 /* BackupService.swift */,
 				C2C05F708ED955DCED25B653 /* ClipLibrary.swift */,
 				AEEB60ECA57DEEC6B5C1E01E /* ContextExplainer.swift */,
 				7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */,
@@ -181,6 +186,7 @@
 				AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */,
 				7D8588A61FB4C378F62A67BE /* ReviewSession.swift */,
 				7FFC9527EB780565989BD136 /* SpeechService.swift */,
+				AD405D373EDA8E12541058F2 /* SubtitleImport.swift */,
 				5784A229DA54E6AE1A86E998 /* Tokenizer.swift */,
 				6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */,
 				AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */,
@@ -341,6 +347,7 @@
 				66F0CF21DF6C1CB5BB7E7133 /* ProfileModels.swift in Sources */,
 				F33CB26456A0C7567B9DE8E6 /* Scheduling.swift in Sources */,
 				C7747E836E80B40C02ED508B /* VocabularyModels.swift in Sources */,
+				0C0A7E3CCFD611B20B296A81 /* BackupService.swift in Sources */,
 				D5D9F0333BCEB6414B8F10B2 /* ClipLibrary.swift in Sources */,
 				E948EB4FA1C60355E30E479F /* ContextExplainer.swift in Sources */,
 				F8F61D5A898C705E98C0FC16 /* Deinflector.swift in Sources */,
@@ -350,6 +357,7 @@
 				858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */,
 				90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */,
 				BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */,
+				88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */,
 				7C6947AD08E2E48BEC5512E8 /* Tokenizer.swift in Sources */,
 				EBBBAEB97CD5AFF18E98D26E /* VideoPlayback.swift in Sources */,
 				50C883C34C81C95F02C63EBD /* YouTubeEmbed.swift in Sources */,
@@ -487,7 +495,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -496,7 +504,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -510,7 +518,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -519,7 +527,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

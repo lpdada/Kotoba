@@ -246,8 +246,8 @@ struct ClipPageView: View {
         analysis = app.library.analysis(for: clip, tokenizer: app.tokenizer)
         mediaURL = app.library.mediaURL(for: clip)
         if let mediaURL {
-            let start = 0.0
-            let end = clip.durationSeconds > 0 ? clip.durationSeconds : 12
+            let start = clip.startSeconds
+            let end = start + (clip.durationSeconds > 0 ? clip.durationSeconds : 12)
             player.load(
                 url: mediaURL,
                 start: start,

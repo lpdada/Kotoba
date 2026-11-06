@@ -18,6 +18,16 @@ struct ClipImporterView: View {
     @State private var youtubeStart = ""
     @State private var youtubeEnd = ""
 
+    // Subtitle card
+    @State private var isImportingSubtitles = false
+    @State private var subtitleMediaName = ""
+    @State private var subtitleSeries = ""
+    @State private var subtitleLines = 3
+    @State private var subtitleMaxSeconds = 12.0
+    @State private var subtitleLevel: JLPTLevel = .n5
+    @State private var subtitleStatus: String?
+    @State private var subtitleError: String?
+
     private var mediaFiles: [String] {
         (try? FileManager.default.contentsOfDirectory(atPath: app.store.mediaDirectory().path))?.sorted() ?? []
     }
@@ -28,6 +38,7 @@ struct ClipImporterView: View {
                 introCard
                 importCard
                 youtubeCard
+                subtitleCard
                 mediaCard
                 formatCard
                 customClipsCard
@@ -51,7 +62,24 @@ struct ClipImporterView: View {
         ) { result in
             handleMediaImport(result)
         }
+        .fileImporter(
+            isPresented: $isImportingSubtitles,
+            allowedContentTypes: Self.subtitleTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            handleSubtitleImport(result)
+        }
     }
+
+    private static let subtitleTypes: [UTType] = {
+        var types: [UTType] = [.plainText]
+        for ext in ["srt", "vtt", "sbv", "ass", "ssa", "txt"] {
+            if let type = UTType(filenameExtension: ext), !types.contains(type) {
+                types.append(type)
+            }
+        }
+        return types
+    }()
 
     // MARK: Cards
 
@@ -244,6 +272,161 @@ struct ClipImporterView: View {
         if lower.hasSuffix(".mp4") || lower.hasSuffix(".mov") || lower.hasSuffix(".m4v") { return "film" }
         if lower.hasSuffix(".mp3") || lower.hasSuffix(".m4a") || lower.hasSuffix(".wav") { return "waveform" }
         return "doc"
+    }
+
+    // MARK: Subtitles
+
+    private var subtitleCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(
+                title: "导入字幕（SRT / VTT）",
+                subtitle: "按句数与时长自动切片；同一个视频的字幕会切成多条可滚动片段"
+            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("视频文件名（留空则用朗读演示）")
+                TextField("例如：ep01.mp4", text: $subtitleMediaName)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 13, design: .monospaced))
+                    .padding(10)
+                    .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                if !mediaFiles.isEmpty {
+                    Text("可选：" + mediaFiles.prefix(3).joined(separator: "、") + (mediaFiles.count > 3 ? " …" : ""))
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("片段名称（留空则用字幕文件名）")
+                TextField("例如：第 1 话", text: $subtitleSeries)
+                    .font(.system(size: 13))
+                    .padding(10)
+                    .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            HStack(alignment: .bottom, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    fieldLabel("每段句数")
+                    Stepper("\(subtitleLines) 句", value: $subtitleLines, in: 1...6)
+                        .font(.system(size: 13))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    fieldLabel("最长时长")
+                    Stepper("\(Int(subtitleMaxSeconds)) 秒", value: $subtitleMaxSeconds, in: 4...40, step: 2)
+                        .font(.system(size: 13))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                fieldLabel("等级")
+                Picker("等级", selection: $subtitleLevel) {
+                    ForEach(JLPTLevel.allCases, id: \.self) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            PrimaryActionButton(title: "选择字幕文件", systemImage: "captions.bubble") {
+                subtitleError = nil
+                isImportingSubtitles = true
+            }
+
+            if let subtitleStatus {
+                Text(subtitleStatus)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.jade)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let subtitleError {
+                Text(subtitleError)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.rose)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("支持 BOM、CRLF、序号行、`<i>` 标签、ASS 覆盖标记与重复滚动字幕；字幕文本会自动分词，点词即可查读音与释义。")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func handleSubtitleImport(_ result: Result<[URL], Error>) {
+        MainActor.assumeIsolated {
+            applySubtitleImport(result)
+        }
+    }
+
+    private func applySubtitleImport(_ result: Result<[URL], Error>) {
+        subtitleStatus = nil
+        subtitleError = nil
+        switch result {
+        case .failure(let error):
+            subtitleError = "选择文件失败：\(error.localizedDescription)"
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                let parsed = try SubtitleParser.parse(data: data)
+                let baseName = url.deletingPathExtension().lastPathComponent
+                let typedMedia = subtitleMediaName.trimmingCharacters(in: .whitespaces)
+                let resolvedMedia = typedMedia.isEmpty ? matchedMediaFileName(for: baseName) : typedMedia
+                let typedSeries = subtitleSeries.trimmingCharacters(in: .whitespaces)
+                let series = typedSeries.isEmpty ? baseName : typedSeries
+                let added = app.importSubtitleCues(
+                    parsed,
+                    mediaFileName: resolvedMedia,
+                    series: series,
+                    level: subtitleLevel,
+                    linesPerClip: subtitleLines,
+                    maxSeconds: subtitleMaxSeconds
+                )
+                var parts = [
+                    "\(parsed.format.rawValue.uppercased())：\(parsed.cues.count) 条字幕",
+                    "生成 \(added) 条片段"
+                ]
+                if parsed.skippedBlocks > 0 { parts.append("跳过 \(parsed.skippedBlocks) 个异常块") }
+                if resolvedMedia.isEmpty { parts.append("未找到同名视频，使用朗读模式") }
+                subtitleStatus = parts.joined(separator: "，")
+                if added > 0 {
+                    app.toast = "已从字幕生成 \(added) 条片段"
+                } else {
+                    subtitleError = "这些字幕对应的片段已经在库里了"
+                }
+            } catch {
+                subtitleError = error.localizedDescription
+            }
+        }
+    }
+
+    /// Tries to pair "ep01.srt" with "ep01.mp4" (or any video whose name starts with it).
+    private func matchedMediaFileName(for baseName: String) -> String {
+        let playable = ["mp4", "m4v", "mov", "mp3", "m4a", "wav"]
+        let videos = mediaFiles.filter { playable.contains(URL(fileURLWithPath: $0).pathExtension.lowercased()) }
+        if let exact = videos.first(where: {
+            URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent == baseName
+        }) {
+            return exact
+        }
+        if let prefixed = videos.first(where: {
+            URL(fileURLWithPath: $0).lastPathComponent.lowercased().hasPrefix(baseName.lowercased())
+        }) {
+            return prefixed
+        }
+        return ""
     }
 
     // MARK: YouTube
