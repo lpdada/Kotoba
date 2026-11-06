@@ -10,9 +10,16 @@ import FoundationNetworking
 /// Off by default and empty by design: Kotoba ships no server address, no token
 /// and no key. With no address the feature stays disabled and every existing
 /// flow keeps working offline.
+/// The personal deployment this build ships pre-filled with. It is a public
+/// hostname (no secret); the field stays editable and clearing it disables both
+/// server synthesis and server transcription.
+enum ServerDefaults {
+    static let baseURL = "https://asr.ysloving.com"
+}
+
 struct TranscriptionSettings: Codable, Hashable {
     var isEnabled: Bool = false
-    var serverURL: String = ""
+    var serverURL: String = ServerDefaults.baseURL
     var timeoutSeconds: Int = 90
     var translateToChinese: Bool = true
 
@@ -153,6 +160,7 @@ struct TranscriptionClient {
     // MARK: Request
 
     func makeRequest(videoID: String) throws -> URLRequest {
+        guard settings.isEnabled else { throw TranscriptionError.notConfigured }
         guard let url = settings.endpointURL else {
             throw settings.isEnabled ? TranscriptionError.invalidURL : TranscriptionError.notConfigured
         }

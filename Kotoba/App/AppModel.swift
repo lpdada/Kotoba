@@ -30,6 +30,8 @@ final class AppModel: ObservableObject {
     @Published var captionFetchStatus: String?
     /// Self-hosted transcription endpoint; disabled and empty by default.
     @Published var transcription = TranscriptionSettings()
+    /// Read-aloud voice preferences (Edge TTS on by default).
+    @Published var voiceOptions = VoiceOptions()
     @Published var metricsByClip: [String: ClipMetrics] = [:]
     @Published var toast: String?
     @Published var aiKeyStored = false
@@ -85,6 +87,8 @@ final class AppModel: ObservableObject {
         explanations = snapshot.explanations
         shadowingRecords = snapshot.shadowingRecords ?? []
         transcription = snapshot.transcription ?? .disabled
+        voiceOptions = snapshot.voiceOptions ?? .default
+        reconfigureSpeech()
         kanjiCards = snapshot.kanjiCards ?? []
     }
 
@@ -101,6 +105,7 @@ final class AppModel: ObservableObject {
         snapshot.explanations = explanations
         snapshot.shadowingRecords = shadowingRecords
         snapshot.transcription = transcription
+        snapshot.voiceOptions = voiceOptions
         snapshot.kanjiCards = kanjiCards
         snapshot.streakDayKeys = Array(activity.keys).sorted()
         return snapshot
@@ -1011,12 +1016,35 @@ final class AppModel: ObservableObject {
         return clip
     }
 
+    // MARK: Voice options
+
+    func updateVoiceOptions(_ mutate: (inout VoiceOptions) -> Void) {
+        var copy = voiceOptions
+        mutate(&copy)
+        voiceOptions = copy
+        reconfigureSpeech()
+        scheduleSave()
+    }
+
+    /// Resolves the 3-way mode (own address → transcription address → edge → system)
+    /// and hands it to the single speech entry point.
+    private func reconfigureSpeech() {
+        let transcriptionURL = transcription.serverURL
+        speech.configure(
+            mode: voiceOptions.effectiveMode(transcriptionURL: transcriptionURL),
+            voiceID: voiceOptions.effectiveVoiceID,
+            serverBaseURL: voiceOptions.resolvedServerURL(transcriptionURL: transcriptionURL)
+        )
+    }
+
     // MARK: Self-hosted transcription
 
     func updateTranscription(_ mutate: (inout TranscriptionSettings) -> Void) {
         var copy = transcription
         mutate(&copy)
         transcription = copy
+        // The read-aloud server address may follow the transcription server.
+        reconfigureSpeech()
         scheduleSave()
     }
 

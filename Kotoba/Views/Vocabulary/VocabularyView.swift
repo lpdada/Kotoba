@@ -309,7 +309,6 @@ struct VocabularyView: View {
 // MARK: - Rows
 
 struct WordRow: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let word: SavedWord
 
     var body: some View {

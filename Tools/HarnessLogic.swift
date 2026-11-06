@@ -663,7 +663,16 @@ struct HarnessLogic {
         print("\n== self-hosted transcription settings ==")
         let defaults = TranscriptionSettings()
         check("transcription is off by default", defaults.isEnabled == false && defaults.isConfigured == false)
-        check("no server address is baked in", defaults.serverURL.isEmpty)
+        check(
+            "default address is the personal deployment",
+            defaults.serverURL == ServerDefaults.baseURL && ServerDefaults.baseURL == "https://asr.ysloving.com",
+            defaults.serverURL
+        )
+        check("clearing the address disables server features", {
+            var cleared = defaults
+            cleared.serverURL = ""
+            return cleared.endpointURL == nil && cleared.isConfigured == false
+        }())
 
         var configured = TranscriptionSettings()
         configured.isEnabled = true
@@ -823,6 +832,267 @@ struct HarnessLogic {
             guard let stripped = try? JSONSerialization.data(withJSONObject: object),
                   let restored = try? BackupService.decodeSnapshot(from: stripped) else { return false }
             return (restored.transcription ?? .disabled).isEnabled == false
+        }())
+
+        print("\n== edge tts protocol ==")
+        let ssml = EdgeTTSProtocol.ssml(
+            text: "すみません & <これ> \"ください\"",
+            voiceID: "ja-JP-NanamiNeural",
+            ratePercent: 20
+        )
+        check("ssml carries the voice", ssml.contains("name=\"ja-JP-NanamiNeural\""))
+        check("ssml carries prosody rate", ssml.contains("rate=\"+20%\""), ssml.prefix(120).description)
+        check("ssml escapes xml", ssml.contains("&amp;") && ssml.contains("&lt;これ&gt;") && !ssml.contains("<これ>"))
+        check("ssml declares japanese", ssml.contains("xml:lang=\"ja-JP\""))
+
+        check("rate 0.45 is neutral", EdgeTTSProtocol.ratePercent(forSpeechRate: 0.45) == 0)
+        check("rate 0.30 is slower", EdgeTTSProtocol.ratePercent(forSpeechRate: 0.30) == -30)
+        check("rate 0.62 is faster", EdgeTTSProtocol.ratePercent(forSpeechRate: 0.62) == 34)
+        check("rate clamps at edges", EdgeTTSProtocol.ratePercent(forSpeechRate: 0.1) == -50 && EdgeTTSProtocol.ratePercent(forSpeechRate: 0.9) == 50)
+
+        let audioPayload = Data([0xFF, 0xF3, 0x64, 0xC4, 0x00, 0x01])
+        let audioFrame = EdgeTTSFrame.parse(EdgeTTSFrame.make(path: "audio", payload: audioPayload))
+        check("audio frame parsed", audioFrame?.isAudio == true && audioFrame?.payload == audioPayload)
+        let endFrame = EdgeTTSFrame.parse(EdgeTTSFrame.make(path: "turn.end", payload: Data()))
+        check("turn.end frame parsed", endFrame?.isTurnEnd == true)
+        check("truncated frame rejected", EdgeTTSFrame.parse(Data([0x00])) == nil)
+        check("mp3 sniffing", EdgeTTSProtocol.looksLikeMP3(Data([0xFF, 0xF3, 0x00])) && !EdgeTTSProtocol.looksLikeMP3(Data("hello".utf8)))
+
+        print("\n== edge tts cache keys ==")
+        check(
+            "sha256 known vectors",
+            SHA256Hex.digest(Data("abc".utf8)) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+                && SHA256Hex.digest(Data()) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+        let keyA = EdgeTTSCacheKey.make(voiceID: "ja-JP-NanamiNeural", ratePercent: 0, text: "こんにちは")
+        let keyB = EdgeTTSCacheKey.make(voiceID: "ja-JP-NanamiNeural", ratePercent: 0, text: "こんにちは  \n")
+        let keyC = EdgeTTSCacheKey.make(voiceID: "ja-JP-KeitaNeural", ratePercent: 0, text: "こんにちは")
+        let keyD = EdgeTTSCacheKey.make(voiceID: "ja-JP-NanamiNeural", ratePercent: 20, text: "こんにちは")
+        check("cache key is stable and trims", keyA == keyB && keyA.count == 64)
+        check("cache key varies by voice and rate", keyA != keyC && keyA != keyD)
+
+        print("\n== edge tts fallback ==")
+        check("disabled prefers system", EdgeTTSRouter.decide(preferEdge: false, voiceUsable: true, online: true, secondsSinceLastFailure: nil) == .useSystem(reason: "已在设置里关闭 Edge TTS"))
+        check("missing voice id falls back", EdgeTTSRouter.decide(preferEdge: true, voiceUsable: false, online: true, secondsSinceLastFailure: nil).shouldUseEdge == false)
+        check("offline goes straight to system", EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: false, secondsSinceLastFailure: nil).shouldUseEdge == false)
+        check("recent failure cools down", EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: 10).shouldUseEdge == false)
+        check("cooldown expires", EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: 700).shouldUseEdge)
+        check("online with no failures uses edge", EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: nil).shouldUseEdge)
+        check("timeout clamped", EdgeTTSRouter.clampTimeout(1) == 5 && EdgeTTSRouter.clampTimeout(15) == 15 && EdgeTTSRouter.clampTimeout(99) == 30)
+
+        print("\n== edge tts cache eviction ==")
+        let cacheRoot = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kottoba-edge-tts-" + UUID().uuidString)
+        let cache = EdgeTTSCache(directory: cacheRoot, limitBytes: 1_500)
+        for index in 1...3 {
+            let url = cache.fileURL(forKey: "k\(index)")
+            try? Data(repeating: 0x41, count: 600).write(to: url)
+            try? FileManager.default.setAttributes(
+                [.modificationDate: Date().addingTimeInterval(Double(-100 * (4 - index)))],
+                ofItemAtPath: url.path
+            )
+        }
+        check("cache starts over the cap", cache.currentSize() == 1_800, "\(cache.currentSize()) bytes")
+        let removed = cache.evictIfNeeded()
+        check("eviction brings it under the cap", cache.currentSize() <= 1_500, "\(cache.currentSize()) bytes")
+        check("oldest entries evicted first", removed == 1 && !FileManager.default.fileExists(atPath: cache.fileURL(forKey: "k1").path))
+        try? FileManager.default.removeItem(at: cacheRoot)
+
+        print("\n== edge tts voice options ==")
+        var options = VoiceOptions.default
+        check("edge preferred by default", options.preferEdge)
+        check("nanami is the default voice", options.effectiveVoiceID == "ja-JP-NanamiNeural")
+        options.voice = .keita
+        check("keita maps to its neural id", options.effectiveVoiceID == "ja-JP-KeitaNeural")
+        options.voice = .custom
+        options.customVoiceID = "  ja-JP-AoiNeural "
+        check("custom voice is trimmed", options.effectiveVoiceID == "ja-JP-AoiNeural")
+        options.customVoiceID = ""
+        check("empty custom voice is unusable", options.isUsable == false)
+
+        var voiceSnapshot = AppSnapshot()
+        voiceSnapshot.voiceOptions = VoiceOptions(preferEdge: false, voice: .keita, customVoiceID: "")
+        let voiceEncoder = JSONEncoder()
+        voiceEncoder.dateEncodingStrategy = .iso8601
+        var voiceRoundTrip = false
+        if let data = try? voiceEncoder.encode(voiceSnapshot),
+           let restored = try? BackupService.decodeSnapshot(from: data) {
+            voiceRoundTrip = restored.voiceOptions?.voice == .keita && restored.voiceOptions?.preferEdge == false
+        }
+        check("voice options survive a backup", voiceRoundTrip)
+
+        print("\n== read-aloud mode selection ==")
+        let bare = VoiceOptions()
+        check("no address anywhere → edge direct", bare.effectiveMode(transcriptionURL: "") == .edgeDirect)
+        check("transcription address enables server mode", bare.effectiveMode(transcriptionURL: "https://asr.test") == .server)
+        var explicitSystem = bare
+        explicitSystem.mode = .systemOnly
+        check("system-only wins over addresses", explicitSystem.effectiveMode(transcriptionURL: "https://asr.test") == .systemOnly)
+        var legacyOff = bare
+        legacyOff.preferEdge = false
+        check("legacy preferEdge=false maps to system only", legacyOff.effectiveMode(transcriptionURL: "") == .systemOnly)
+        var serverNoAddress = bare
+        serverNoAddress.mode = .server
+        check("server mode without address degrades to edge", serverNoAddress.effectiveMode(transcriptionURL: "") == .edgeDirect)
+        check("server mode with transcription address stays server", serverNoAddress.effectiveMode(transcriptionURL: "https://asr.test") == .server)
+        var ownAddress = bare
+        ownAddress.serverURL = "https://tts.own.test"
+        check("own address wins for resolution", ownAddress.resolvedServerURL(transcriptionURL: "https://asr.test") == "https://tts.own.test")
+        check("transcription address used when own is empty", bare.resolvedServerURL(transcriptionURL: "https://asr.test") == "https://asr.test")
+        check("resolution trims whitespace", bare.resolvedServerURL(transcriptionURL: "  https://asr.test  ") == "https://asr.test")
+
+        print("\n== server synthesis request ==")
+        let serverClient = ServerTTSService(baseURL: "https://tts.example.test", send: { request in (Data(), 200) })
+        check("endpoint appends /tts", serverClient.endpointURL?.absoluteString == "https://tts.example.test/tts")
+        let trailing = ServerTTSService(baseURL: "https://tts.example.test/", send: { _ in (Data(), 200) })
+        check("trailing slash normalised", trailing.endpointURL?.absoluteString == "https://tts.example.test/tts")
+        let fullEndpoint = ServerTTSService(baseURL: "https://tts.example.test/tts", send: { _ in (Data(), 200) })
+        check("full endpoint kept", fullEndpoint.endpointURL?.absoluteString == "https://tts.example.test/tts")
+        let badEndpoint = ServerTTSService(baseURL: "ftp://nope", send: { _ in (Data(), 200) })
+        check("non-http base rejected", badEndpoint.endpointURL == nil)
+
+        guard let ttsRequest = try? serverClient.makeRequest(text: "こんにちは", voiceID: "ja-JP-NanamiNeural", ratePercent: -20, timeout: 15) else {
+            check("server request built", false)
+            return
+        }
+        check("server request is POST", ttsRequest.httpMethod == "POST")
+        check("server request sets timeout", abs(ttsRequest.timeoutInterval - 15) < 0.5, "\(ttsRequest.timeoutInterval)")
+        check("server request sends JSON", ttsRequest.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        check("server request expects mpeg", ttsRequest.value(forHTTPHeaderField: "Accept") == "audio/mpeg")
+        let ttsBody = (try? JSONSerialization.jsonObject(with: ttsRequest.httpBody ?? Data())) as? [String: Any] ?? [:]
+        check("server body carries text", ttsBody["text"] as? String == "こんにちは")
+        check("server body carries voice", ttsBody["voice"] as? String == "ja-JP-NanamiNeural")
+        check("server body carries rate", ttsBody["rate_percent"] as? Int == -20)
+        check("server request has no auth header", ttsRequest.value(forHTTPHeaderField: "Authorization") == nil)
+
+        print("\n== server synthesis response handling ==")
+        let mp3 = Data([0xFF, 0xF3, 0x64, 0xC4] + Data(repeating: 0x11, count: 600))
+        let okClient = ServerTTSService(baseURL: "https://tts.test", send: { _ in (mp3, 200) })
+        let okData = try? await okClient.audio(text: "はい", voiceID: "ja-JP-NanamiNeural", ratePercent: 0)
+        check("200 + mp3 accepted", okData == mp3)
+
+        let textClient = ServerTTSService(baseURL: "https://tts.test", send: { _ in (Data("oops".utf8), 200) })
+        var rejectedNonMP3 = false
+        do { _ = try await textClient.audio(text: "はい", voiceID: "v", ratePercent: 0) }
+        catch let error as ServerTTSService.Failure { if case .malformedAudio = error { rejectedNonMP3 = true } } catch { }
+        check("non-mp3 body rejected", rejectedNonMP3)
+
+        let emptyClient = ServerTTSService(baseURL: "https://tts.test", send: { _ in (Data(), 200) })
+        var rejectedEmpty = false
+        do { _ = try await emptyClient.audio(text: "はい", voiceID: "v", ratePercent: 0) }
+        catch let error as ServerTTSService.Failure { if case .emptyAudio = error { rejectedEmpty = true } } catch { }
+        check("empty body rejected", rejectedEmpty)
+
+        let errorClient = ServerTTSService(baseURL: "https://tts.test", send: { _ in (Data("boom".utf8), 500) })
+        var sawServerError = false
+        do { _ = try await errorClient.audio(text: "はい", voiceID: "v", ratePercent: 0) }
+        catch let error as ServerTTSService.Failure {
+            if case .http(let status, _) = error, status == 500 { sawServerError = true }
+        } catch { }
+        check("5xx surfaces as http error", sawServerError)
+
+        let offlineClient = ServerTTSService(baseURL: "https://tts.test", send: { _ in throw URLError(.notConnectedToInternet) })
+        var sawNetwork = false
+        do { _ = try await offlineClient.audio(text: "はい", voiceID: "v", ratePercent: 0) }
+        catch let error as ServerTTSService.Failure { if case .network = error { sawNetwork = true } } catch { }
+        check("transport failure surfaces as network", sawNetwork)
+
+        print("\n== server audio cache reuse ==")
+        let serverCacheRoot = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kottoba-server-tts-" + UUID().uuidString)
+        let serverCache = EdgeTTSCache(directory: serverCacheRoot, limitBytes: 5_000_000)
+        let serverKey = EdgeTTSCacheKey.make(voiceID: "ja-JP-NanamiNeural", ratePercent: 0, text: "こんにちは")
+        try? serverCache.store(mp3, forKey: serverKey)
+        check("server audio lands in the shared cache", serverCache.existing(forKey: serverKey) != nil)
+        check("cache key is source independent", serverKey == EdgeTTSCacheKey.make(voiceID: "ja-JP-NanamiNeural", ratePercent: 0, text: "こんにちは"))
+        try? FileManager.default.removeItem(at: serverCacheRoot)
+
+        print("\n== long text chunking ==")
+        check("short text stays whole", TextChunker.chunks(of: "こんにちは。") == ["こんにちは。"])
+        let longText = String(repeating: "今日はいい天気ですね。", count: 200)
+        let chunks = TextChunker.chunks(of: longText)
+        check("long text is split under the limit", chunks.count > 1 && chunks.allSatisfy { $0.count <= TextChunker.limit }, "\(chunks.count) chunks")
+        check("no text is lost when chunking", chunks.joined().count == longText.count, "\(chunks.joined().count) vs \(longText.count)")
+        check("chunks break on sentence punctuation", chunks.dropLast().allSatisfy { $0.hasSuffix("。") })
+        let giantSentence = String(repeating: "あ", count: 2_500)
+        let hardSplit = TextChunker.chunks(of: giantSentence)
+        check("runaway sentence is hard split", hardSplit.allSatisfy { $0.count <= TextChunker.limit } && hardSplit.joined().count == 2_500)
+        check("empty text yields nothing", TextChunker.chunks(of: "   ").isEmpty)
+
+        var overLimitRejected = false
+        do {
+            _ = try serverClient.makeRequest(
+                text: String(repeating: "あ", count: ServerTTSService.maxTextLength + 1),
+                voiceID: "v",
+                ratePercent: 0,
+                timeout: 15
+            )
+        } catch let error as ServerTTSService.Failure {
+            if case .textTooLong(let limit) = error, limit == 1_000 { overLimitRejected = true }
+        } catch { }
+        check("client refuses over-limit text before sending", overLimitRejected)
+
+        print("\n== 400 handling ==")
+        let badRequest = ServerTTSService(baseURL: "https://tts.test", send: { _ in (Data("{\"detail\":\"String should have at most 1000 characters\"}".utf8), 400) })
+        var saw400 = false
+        do { _ = try await badRequest.audio(text: "はい", voiceID: "v", ratePercent: 0) }
+        catch let error as ServerTTSService.Failure {
+            if case .http(let status, _) = error, status == 400 { saw400 = true }
+        } catch { }
+        check("400 is surfaced as an http failure (silent fallback)", saw400)
+        check("no 422-specific branch anywhere", {
+            let marker = "42" + "2"
+            let files = ["Kotoba/Services/ServerTTSService.swift", "Kotoba/Services/SpeechService.swift"]
+            return files.allSatisfy { path in
+                guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return false }
+                return !text.contains(marker)
+            }
+        }())
+
+        print("\n== app wiring for read-aloud ==")
+        // "No address anywhere" now means explicitly cleared, since this build
+        // ships a pre-filled default.
+        app.transcription = TranscriptionSettings(isEnabled: false, serverURL: "", timeoutSeconds: 90, translateToChinese: true)
+        app.voiceOptions = VoiceOptions(mode: .server, serverURL: "")
+        app.updateVoiceOptions { _ in }
+        check("no address → speech configured as edge", app.speech.configuredMode == .edgeDirect)
+
+        app.transcription = TranscriptionSettings(isEnabled: false, serverURL: "", timeoutSeconds: 90, translateToChinese: true)
+        app.voiceOptions = VoiceOptions()
+        app.updateVoiceOptions { _ in }
+        check("empty everywhere → edge direct (old behaviour)", app.speech.configuredMode == .edgeDirect)
+
+        app.updateTranscription { $0.serverURL = "https://asr.test" }
+        check("transcription address promotes server mode", app.speech.configuredMode == .server)
+        check("server base resolves to transcription address", app.speech.configuredServer == "https://asr.test")
+
+        app.updateVoiceOptions { $0.serverURL = "https://tts.own.test" }
+        check("own read-aloud address overrides", app.speech.configuredServer == "https://tts.own.test")
+
+        app.updateVoiceOptions { $0.mode = .systemOnly }
+        check("system-only reaches the speech service", app.speech.configuredMode == .systemOnly)
+        app.updateVoiceOptions { $0.mode = .edgeDirect }
+        check("edge direct reaches the speech service", app.speech.configuredMode == .edgeDirect)
+
+        var voicePayload = AppSnapshot()
+        voicePayload.voiceOptions = VoiceOptions(mode: .server, serverURL: "https://tts.own.test")
+        let modeEncoder = JSONEncoder()
+        modeEncoder.dateEncodingStrategy = .iso8601
+        var modeRoundTrip = false
+        if let data = try? modeEncoder.encode(voicePayload),
+           let restored = try? BackupService.decodeSnapshot(from: data) {
+            modeRoundTrip = restored.voiceOptions?.mode == .server
+                && restored.voiceOptions?.serverURL == "https://tts.own.test"
+        }
+        check("3-way mode survives a backup", modeRoundTrip)
+        check("old backups without mode still decode", {
+            guard let data = try? modeEncoder.encode(AppSnapshot()) else { return false }
+            guard var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+            if var voice = object["voiceOptions"] as? [String: Any] {
+                voice.removeValue(forKey: "mode")
+                object["voiceOptions"] = voice
+            }
+            guard let stripped = try? JSONSerialization.data(withJSONObject: object),
+                  let restored = try? BackupService.decodeSnapshot(from: stripped) else { return false }
+            return restored.voiceOptions?.mode == nil
         }())
 
         print("\n\(failures == 0 ? "ALL CHECKS PASSED" : "\(failures) CHECK(S) FAILED")")

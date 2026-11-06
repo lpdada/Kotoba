@@ -144,6 +144,8 @@ struct AppSnapshot: Codable {
     var kanjiCards: [KanjiCard]?
     /// Optional: added with the self-hosted transcription option.
     var transcription: TranscriptionSettings?
+    /// Optional: added with the Edge TTS voice options.
+    var voiceOptions: VoiceOptions?
 }
 
 // MARK: - Review load forecast

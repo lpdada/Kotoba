@@ -18,6 +18,8 @@ struct SettingsView: View {
     @State private var ankiURL: URL?
     @State private var transcriptionURLDraft = ""
     @State private var transcriptionTestResult: String?
+    @State private var voiceIDDraft = ""
+    @State private var readAloudServerDraft = ""
     @State private var isTestingTranscription = false
 
     var body: some View {
@@ -25,6 +27,7 @@ struct SettingsView: View {
             learnerSection
             subtitleSection
             playbackSection
+            voiceSection
             aiSection
             transcriptionSection
             dataSection
@@ -180,6 +183,96 @@ struct SettingsView: View {
                     .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.rose)
             }
+        }
+    }
+
+    // MARK: Voice
+
+    private var voiceSection: some View {
+        Section {
+            Picker("朗读方式", selection: Binding(
+                get: { app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL) },
+                set: { value in app.updateVoiceOptions { $0.mode = value } }
+            )) {
+                ForEach(ReadAloudMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+
+            if app.voiceOptions.effectiveMode(transcriptionURL: app.transcription.serverURL) == .server {
+                TextField("朗读服务器（留空则复用转写地址）", text: $readAloudServerDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .accessibilityLabel(Text("朗读服务器地址"))
+                    .onSubmit { commitReadAloudServer() }
+                HStack {
+                    Button("保存地址") { commitReadAloudServer() }
+                        .font(Theme.font(size: 13, weight: .semibold))
+                    Spacer()
+                    Text(effectiveReadAloudServer)
+                        .font(Theme.font(size: 10))
+                        .foregroundStyle(Theme.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+
+            Picker("日语语音", selection: Binding(
+                get: { app.voiceOptions.voice },
+                set: { value in app.updateVoiceOptions { $0.voice = value } }
+            )) {
+                ForEach(EdgeTTSVoice.allCases) { voice in
+                    Text(voice.title).tag(voice)
+                }
+            }
+
+            if app.voiceOptions.voice == .custom {
+                TextField("语音 ID，例如 ja-JP-NanamiNeural", text: $voiceIDDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit { app.updateVoiceOptions { $0.customVoiceID = voiceIDDraft } }
+                Button("保存语音 ID") {
+                    app.updateVoiceOptions { $0.customVoiceID = voiceIDDraft.trimmingCharacters(in: .whitespacesAndNewlines) }
+                }
+                .font(Theme.font(size: 13, weight: .semibold))
+            }
+
+            HStack {
+                Button("试听") {
+                    app.speech.speak("こんにちは、今日はいい天気ですね。", rate: app.profile.speechRate)
+                }
+                .font(Theme.font(size: 13, weight: .semibold))
+                .accessibilityHint(Text("用当前语音朗读一句日语"))
+                Spacer()
+                Text(lastEngineLabel)
+                    .font(Theme.font(size: 11))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+        } header: {
+            Text("朗读语音")
+        } footer: {
+            Text("三种方式都只发送要朗读的文本，不附带账号或学习记录。「服务器合成」会请求你自己的 edge-tts 代理（POST /tts），地址留空时复用「云端转写」里填的服务器；「Edge 直连」由本机直接请求 Microsoft，被其反滥用校验拒绝时自动改用系统语音；任何失败都不会弹窗打断学习。")
+        }
+    }
+
+    private var effectiveReadAloudServer: String {
+        let resolved = app.voiceOptions.resolvedServerURL(transcriptionURL: app.transcription.serverURL)
+        return resolved.isEmpty ? "未配置地址" : resolved
+    }
+
+    private var lastEngineLabel: String {
+        switch app.speech.lastEngine {
+        case "edge": return "上次：Edge 直连"
+        case "server": return "上次：服务器合成"
+        default: return "上次：系统语音"
+        }
+    }
+
+    private func commitReadAloudServer() {
+        let value = readAloudServerDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        app.updateVoiceOptions { $0.serverURL = value }
+        if value.isEmpty {
+            app.toast = "朗读服务器已留空，将复用转写地址"
         }
     }
 
@@ -394,6 +487,8 @@ struct SettingsView: View {
         baseURLDraft = app.profile.aiBaseURL
         modelDraft = app.profile.aiModel
         transcriptionURLDraft = app.transcription.serverURL
+        voiceIDDraft = app.voiceOptions.customVoiceID
+        readAloudServerDraft = app.voiceOptions.serverURL
     }
 
     private func testConnection() async {

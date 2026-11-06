@@ -34,6 +34,7 @@
 | 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
 | 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
 | 无障碍 | 全量 Dynamic Type（字号→系统文字样式映射，>26 pt 用 `@ScaledMetric`；视图层零硬编码字号）、VoiceOver 标签/hint/值与 `.isHeader`/`.isSelected` 语义、非颜色第二通道（熟悉度下划线、文字化的等级与评分）、尊重「减弱动态效果」 |
+| 朗读语音 | 统一入口、三种方式可切换：**服务器合成（推荐）** / Edge 直连 / 仅系统语音。任何失败都静默回落到系统语音；语音可选 Nanami（女）/ Keita（男）/ 自定义 ID；音频按「语音+语速+文本」缓存（Edge 与服务器共用） |
 | 云端转写（可选） | 默认关闭、地址留空即禁用；填好自己的转写服务后，导入 YouTube 片段时可请求带时间轴的日文字幕（可选中文翻译）。Kotoba 不内置地址/密钥，服务不可用时自动回退到「公开字幕 → 手动粘贴 / 字幕文件」 |
 | 抓取 YouTube 字幕 | 粘贴链接后可一键读取 YouTube 公开字幕轨道（日语人工轨优先，其次自动轨），自动填好日文字幕、起止时间与逐行时间轴；失败时给出原因并保留手动粘贴 |
 | 回声练习 | 每句按「听 → 懂 → 模仿 → 对比」四步练习，对比阶段复用跟读录音与自评（跟上了 / 再来一次） |
@@ -246,22 +247,55 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
   -o /tmp/verify_core && /tmp/verify_core Kotoba/Resources/Dictionary.json
 ```
 
-## 6. 已知限制
+## 6. 朗读语音：三种方式（默认服务器合成，静默回落）
 
-- 没有词形标注的训练数据，分词是「词典 + DP」而非形态素分析器；人名、专有名词会切成单字（表现为多个未知词），这时点词会走 AI/本地解释而不是词典释义。
-- 词典释义为英文（JMdict 原始数据），界面与语境解释是中文。个人使用时通常配合 AI 解释看中文。
-- 未做后台播放、锁屏控制、通知提醒。
-- 精听模式对 YouTube 片段用本地朗读演示（内嵌播放器无法逐句 seek），只有本地/网络视频文件走真实音轨。
-- 汉字笔顺**尚未实现**：KanjiVG 全量数据体积过大，本轮不做半成品渲染，界面上不显示任何未经验证的笔顺，留待下一轮。
-- **云端转写的服务端不在这个仓库里**：Kotoba 只提供客户端与接口契约；没有服务时该按钮不出现，一切保持离线可用。音频上传变体（`/transcribe-audio`）只有契约，客户端尚未实现。
-- **YouTube 字幕抓取依赖公开字幕轨**：没有服务端、也不做 ASR，无法为无字幕视频生成字幕；自动字幕在无登录时可能被 YouTube 拒绝（403/429），此时需要手动粘贴。抓到的只有日语原文，**中文翻译不自动生成**。
-- **素材库不含第三方目录**：不做打包的分级视频清单（版权原因），只整理用户自己的片段。
-- **无障碍只在代码层验证**：本机没有 Xcode/模拟器，VoiceOver 的实际朗读、200% 字号下的真实排版、Voice Control 均未在设备上确认；`Tools/check_accessibility.py` 只能保证「没有硬编码字号、纯图标按钮有标签、图表有数值、颜色有第二通道、Reduce Motion 已接」这些结构性不变量。
-- 汉字中文释义只覆盖 N5+N4（284 字，人工核对）：KANJIDIC2 本身只有英/西/法/葡释义，其余字显示带标注的英文原义，不做机器翻译。
-- 跟读录音需要麦克风权限；录音文件只在本机 `Documents/Shadowing`，不会随备份导出（备份只含文字记录与文件名）。
-- 视频只支持单文件本地播放或 YouTube 内嵌；不做离线下载。
-- 真机安装需自行配置签名团队；仓库不含描述文件。
+所有朗读入口（字幕整段、重播、点词与例句、汉字例词、精听/回声的模式内朗读）都走同一个 `SpeechService`。设置里是三选一：
 
+| 方式 | 行为 | 何时用 |
+| --- | --- | --- |
+| **服务器合成（推荐）** | `POST {地址}/tts`（JSON）→ 取回 MP3 → 播放 | 默认使用本机预填的 `https://asr.ysloving.com`；地址清空则**复用「云端转写」的服务器地址**，两者都空则退回 Edge 直连 |
+| **Edge 直连** | 本机直连 Microsoft 的免费接口（WebSocket） | 服务器不可用、或想省掉代理 |
+| **仅系统语音** | 完全不联网，只用 `AVSpeechSynthesizer` | 不想让任何文本离开设备 |
+
+**默认行为**：这个构建预填了个人服务器 `https://asr.ysloving.com`（公开主机名、无密钥，可随时清空），因此开箱即按「服务器合成」工作；两个地址都清空后 → 退回「Edge 直连」（其失败再退系统语音）。三种方式都遵守同一条回落链：
+
+```
+离线 / 无语音 ID / 10 分钟内失败过  → 系统语音（不等待网络超时）
+服务器或 Edge 返回 4xx/5xx、超时、空音频、非 MP3、解码失败 → 记录失败时间 → 系统语音（不弹窗）
+成功 → 写入缓存（Library/Caches/EdgeTTS，50 MB LRU）→ 立即播放
+```
+
+### 6.1 服务器合成的接口契约（由 Hermes 部署，不在本仓库）
+
+```
+POST {base}/tts
+Content-Type: application/json
+{ "text": "こんにちは", "voice": "ja-JP-NanamiNeural", "rate_percent": 0 }
+
+200 → Content-Type: audio/mpeg，MP3 字节
+4xx/5xx → 任意 body（Kotoba 只显示状态码，不重试，直接回落）
+GET {base}/health → 200（可选，用于自检）
+```
+
+- 地址接受 `https://host`、`https://host/` 或完整的 `…/tts`（自动补 `/tts`）。
+- `rate_percent` 由应用已有的朗读速度映射（0.45→0，夹在 ±50）。
+- 请求**不带任何鉴权头**：Kotoba 不内置令牌；需要鉴权请在你的反代上做。
+- **单段上限 1000 字**（服务端校验：`String should have at most 1000 characters`，返回 400 且不回显原文）。因此长文本会在客户端按句读切分成 ≤1000 字的若干段，逐段合成并顺序播放，不会因为超长整段退回系统语音；单段仍超限时客户端也会在发请求前拦住。
+- 400（参数/长度）与 5xx（上游失败）都按「静默回落」处理，不重试、不弹窗。
+- 缓存键是 `SHA256(voice|rate|text)`，与来源无关——同一条文本无论来自 Edge 还是你的服务器都命中同一份 MP3。
+
+### 6.2 本机验证结果（如实记录）
+
+| 检查 | 结果 |
+| --- | --- |
+| Edge 端点可达 | ✅ 可达；语音列表 200（322 个语音，日语仅 Nanami / Keita） |
+| Edge 真实合成（edge-tts 7.3.1） | ✅ 20,592 字节 MP3，48 kbps 单声道，mutagen 测得 3.43 秒 |
+| 裸握手（公开文档） | ❌ WebSocket 升级 403；带上一轮有效令牌则 200 —— 说明 Microsoft 要求未公开的 `Sec-MS-GEC` 反滥用令牌 |
+| 服务器合成（已上线） | ✅ 2026-11-06 用应用同款请求体 `POST https://asr.ysloving.com/tts`：**200**，`Content-Type: audio/mpeg`，`X-Voice: ja-JP-NanamiNeural`，`Cache-Control: no-store`，**20,592 字节**，`file` 识别为 MPEG ADTS layer III / 48 kbps / 24 kHz / mono，mutagen 测得 **3.43 秒**；1.65 秒返回 |
+| Keita 音色 | ✅ 同一句话 200，19,008 字节，3.17 秒，`X-Voice: ja-JP-KeitaNeural`（Hermes 记录的是 11,232 字节，说明他们用的是更短的文本；同一文本以本表为准） |
+| 参数校验 | ✅ 空文本 → **400** `String should have at least 1 character`；6000 字 → **400** `String should have at most 1000 characters`；两者都不回显原文 |
+| 非法音色 | ⚠️ 返回 **502**（上游 `No audio was received`），属 5xx，客户端同样静默回落 |
+| `/health` | ✅ 200，返回 ASR 模型与 TTS 语音列表 |
 
 ## 7. 验证记录
 
@@ -356,6 +390,21 @@ entries: 11794
 == transcription integration ==
   PASS  AppModel refuses without configuration；server transcript becomes a clip
   PASS  timings kept；provider recorded；settings survive a backup；old backups stay off
+== edge tts ==
+  PASS  ssml voice / prosody / xml escaping；rate mapping 0 / -30 / +34，clamps ±50
+  PASS  audio & turn.end frame parsing；truncated frame rejected；mp3 sniffing
+  PASS  sha256 known vectors；cache key stable & varies by voice/rate
+  PASS  fallback: disabled / no voice / offline / 10-min cooldown → system
+  PASS  cache eviction under 1.5 KB cap，oldest first
+  PASS  voice options default Nanami + prefer Edge；custom id trimmed；survive backup
+== read-aloud 3 modes (server) ==
+  PASS  mode matrix: no address → edge；transcription address → server；system-only wins
+  PASS  legacy preferEdge=false → system only；server without address degrades to edge
+  PASS  address resolution: own wins, transcription fallback, trimming
+  PASS  POST /tts body {text, voice, rate_percent}；no auth header；timeout 15
+  PASS  200+mp3 accepted；non-mp3 / empty / 5xx / transport failure mapped
+  PASS  server audio lands in shared cache；key is source independent
+  PASS  app wiring: transcription address promotes server mode；system-only reaches service
 == echo session ==
   PASS  echo starts at listen → understand → imitate → compare
   PASS  echo wraps to next sentence；echo finishes after the last sentence

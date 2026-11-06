@@ -25,11 +25,14 @@
 		9D4A31E82E976CB5DE507665 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */; };
 		882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */; };
 		C190E4ECC35D45147B81EEA9 /* EchoSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05E92F0E37E9C838C498A66C /* EchoSession.swift */; };
+		054C59F39C6ED73E7A6D7BED /* EdgeTTSProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42816FCA08095F9058F43DD2 /* EdgeTTSProtocol.swift */; };
+		35AA2DDC606A0B07E1D9223E /* EdgeTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C80CC404BAEF8572FDB0F7DE /* EdgeTTSService.swift */; };
 		09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */; };
 		2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */; };
 		ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238B2904DEB16DD5BE2512CB /* KanjiStore.swift */; };
 		858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */; };
 		90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8588A61FB4C378F62A67BE /* ReviewSession.swift */; };
+		E6F845BED367F8ED47ED8317 /* ServerTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7F4BAE541F57B95D37595E /* ServerTTSService.swift */; };
 		95EFE37755B701C9D7146EB1 /* ShadowingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */; };
 		BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFC9527EB780565989BD136 /* SpeechService.swift */; };
 		88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD405D373EDA8E12541058F2 /* SubtitleImport.swift */; };
@@ -85,11 +88,14 @@
 		B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryStore.swift; sourceTree = "<group>"; };
 		05E92F0E37E9C838C498A66C /* EchoSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoSession.swift; sourceTree = "<group>"; };
+		42816FCA08095F9058F43DD2 /* EdgeTTSProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeTTSProtocol.swift; sourceTree = "<group>"; };
+		C80CC404BAEF8572FDB0F7DE /* EdgeTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeTTSService.swift; sourceTree = "<group>"; };
 		B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRanker.swift; sourceTree = "<group>"; };
 		108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntensiveListening.swift; sourceTree = "<group>"; };
 		238B2904DEB16DD5BE2512CB /* KanjiStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiStore.swift; sourceTree = "<group>"; };
 		AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceStore.swift; sourceTree = "<group>"; };
 		7D8588A61FB4C378F62A67BE /* ReviewSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSession.swift; sourceTree = "<group>"; };
+		ED7F4BAE541F57B95D37595E /* ServerTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTTSService.swift; sourceTree = "<group>"; };
 		E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShadowingRecorder.swift; sourceTree = "<group>"; };
 		7FFC9527EB780565989BD136 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		AD405D373EDA8E12541058F2 /* SubtitleImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleImport.swift; sourceTree = "<group>"; };
@@ -214,11 +220,14 @@
 				B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */,
 				4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */,
 				05E92F0E37E9C838C498A66C /* EchoSession.swift */,
+				42816FCA08095F9058F43DD2 /* EdgeTTSProtocol.swift */,
+				C80CC404BAEF8572FDB0F7DE /* EdgeTTSService.swift */,
 				B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */,
 				108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */,
 				238B2904DEB16DD5BE2512CB /* KanjiStore.swift */,
 				AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */,
 				7D8588A61FB4C378F62A67BE /* ReviewSession.swift */,
+				ED7F4BAE541F57B95D37595E /* ServerTTSService.swift */,
 				E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */,
 				7FFC9527EB780565989BD136 /* SpeechService.swift */,
 				AD405D373EDA8E12541058F2 /* SubtitleImport.swift */,
@@ -399,11 +408,14 @@
 				9D4A31E82E976CB5DE507665 /* Diagnostics.swift in Sources */,
 				882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */,
 				C190E4ECC35D45147B81EEA9 /* EchoSession.swift in Sources */,
+				054C59F39C6ED73E7A6D7BED /* EdgeTTSProtocol.swift in Sources */,
+				35AA2DDC606A0B07E1D9223E /* EdgeTTSService.swift in Sources */,
 				09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */,
 				2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */,
 				ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */,
 				858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */,
 				90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */,
+				E6F845BED367F8ED47ED8317 /* ServerTTSService.swift in Sources */,
 				95EFE37755B701C9D7146EB1 /* ShadowingRecorder.swift in Sources */,
 				BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */,
 				88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */,
@@ -551,7 +563,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -560,7 +572,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.7.0;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -574,7 +586,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -583,7 +595,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.7.0;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

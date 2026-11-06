@@ -71,6 +71,16 @@ final class PersistenceStore {
 /// Speech stand-in: TTS is device-only.
 final class SpeechService {
     var hasJapaneseVoice: Bool { true }
+    var lastEngine: String = "system"
+    var isSpeaking: Bool = false
+    private(set) var configuredMode: ReadAloudMode?
+    private(set) var configuredVoiceID: String?
+    private(set) var configuredServer: String?
+    func configure(mode: ReadAloudMode, voiceID: String, serverBaseURL: String) {
+        configuredMode = mode
+        configuredVoiceID = voiceID
+        configuredServer = serverBaseURL
+    }
     func speak(_ text: String, rate: Double) { }
     func stop() { }
 }

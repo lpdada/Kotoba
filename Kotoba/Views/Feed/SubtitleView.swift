@@ -122,7 +122,7 @@ struct SubtitleTokenView: View {
         }
     }
 
-    static func tokenLabel(_ token: ClipToken, familiarity: Int?) -> String {
+    private func tokenLabel(_ token: ClipToken, familiarity: Int?) -> String {
         var parts = [token.text]
         if let reading = token.reading, reading != token.text { parts.append("读音 \(reading)") }
         if let formation = token.formation { parts.append(formation) }
@@ -179,7 +179,7 @@ struct SubtitleLineView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(Text(SubtitleTokenView.tokenLabel(token, familiarity: familiarityFor(token))))
+                        .accessibilityLabel(Text(tokenLabel(token, familiarity: familiarityFor(token))))
                         .accessibilityHint(Text("查看读音、释义与例句"))
                     }
                 }

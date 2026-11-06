@@ -156,3 +156,74 @@
 - 客户端音频上传（`/transcribe-audio`）：只有契约。
 - 任何真实服务器地址、令牌、密钥：仓库里一律没有；鉴权由用户在自己的服务器/反代上做。
 - 不复制 Miraa 的服务端转写/AI 翻译实现，也不复制其品牌、文案与视觉。
+
+## 11. Edge TTS 朗读（第七轮）
+
+### 11.1 为什么改
+
+系统 `AVSpeechSynthesizer` 的日语合成音质生硬、断句机械；「听」是本应用的主线（点词朗读、精听、回声），音质直接影响跟读意愿。Microsoft Edge 的 read-aloud 是免费、免密钥的在线语音，日语 Neural 音色明显更自然。
+
+### 11.2 实际发生了什么（协议验证）
+
+- Edge 端点可达、语音列表可取（日语仅 Nanami / Keita 两个）。
+- 用 `edge-tts 7.3.1` 成功合成 3.43 秒、48 kbps 的 MP3，文件有效。
+- 但**按公开文档的裸 WebSocket 握手一律 403**：服务端要求 `Sec-MS-GEC` v2 令牌（`<16 hex CS64>-<64 hex SHA256>` + 匹配的 UA/版本），只有带有效令牌才 200；只给 SHA-256 半段仍 403。
+- 该令牌的 CS64 部分在开源实现里是混淆代码（GPL-3.0），属于对方的反滥用机制。**决定不移植**：许可冲突 + 脆弱 + 与「不绕过对方保护」的原则冲突。
+
+### 11.3 因此实现的形态
+
+- 完整客户端（`EdgeTTSProtocol` 纯逻辑 + `EdgeTTSService` WebSocket/缓存），按公开协议：`speech.config` → `ssml` → 二进制音频帧 → `turn.end`。
+- 默认开启，但**任何失败静默回落到系统语音**；离线、关闭、10 分钟内失败过都直接走系统，不等待网络超时。
+- 缓存：`Library/Caches/EdgeTTS`，键 `SHA256(voice|rate|text)`，50 MB LRU。
+- 语音：Nanami / Keita（服务端仅这两个）+ 自定义语音 ID 输入（未来新增音色可直接用）。
+- 语速：复用应用已有的朗读速度，映射到 SSML `prosody rate`（±50% 截断）。
+
+### 11.4 未做 / 待条件成熟
+
+- 不实现 `Sec-MS-GEC`（见 11.2）。若 Microsoft 放开，或用户用自建代理补上握手，客户端无需改动即可工作。
+- 未做流式播放（当前整段合成后播放，缓存命中即刻播放）。
+- 未在真机验证音色与延迟（本机无 Xcode，也无有效令牌可测真实合成路径）。
+
+## 12. 服务器合成朗读（第八轮）
+
+### 12.1 为什么
+
+第 11 轮把 Edge TTS 客户端做完了，但直连被 Microsoft 的 `Sec-MS-GEC` 反滥用校验挡住（公开握手 403），真机上大概率只能听到系统语音。既然用户有新加坡服务器（Hermes 负责部署 edge-tts 代理），把合成放到服务器上即可绕开这个死结：客户端只发一条 HTTPS POST，拿回 MP3。
+
+### 12.2 实现形态
+
+- 新增 `ServerTTSService`：`POST {base}/tts`，body `{text, voice, rate_percent}`，返回 `audio/mpeg`；地址自动补 `/tts`，无鉴权头，超时沿用 15 秒夹取；4xx/5xx、空 body、非 MP3、传输错误都归类为可回落错误。
+- `SpeechService` 变成三模式路由：`server` / `edgeDirect` / `systemOnly`，共用同一条回落链（离线、10 分钟冷却、失败即系统语音），成功音频写入既有的 `EdgeTTSCache`（键与来源无关）。
+- 默认规则：地址为空 → 实际走 `edgeDirect`（等价于旧行为）；`云端转写` 或朗读服务器填了地址 → 自动 `server`。
+- 设置页：三选一 Picker + 朗读服务器地址（留空复用转写地址）+ 试听 + 「上次：Edge 直连 / 服务器合成 / 系统语音」。
+- 兼容：`VoiceOptions.mode` 是可选字段，旧备份里只有 `preferEdge`；`preferEdge=false` 迁移为「仅系统语音」。
+
+### 12.3 验证策略
+
+服务器未部署，所以本轮**不做**端到端验证，只做客户端逻辑断言：模式选择矩阵、地址解析/默认、请求构造（方法/路径/头/JSON 字段/超时/无鉴权）、响应处理（200+MP3、非 MP3、空、5xx、传输异常）、缓存落盘与键稳定性、AppModel 向 SpeechService 的配置传递。全部使用可注入传输与固定 fixture。
+
+### 12.4 服务器上线后怎么验
+
+1. `curl -sS https://<host>/health` → 200。
+2. `curl -sS -X POST https://<host>/tts -H 'Content-Type: application/json' -d '{"text":"こんにちは","voice":"ja-JP-NanamiNeural","rate_percent":0}' -o t.mp3` → `file t.mp3` 应显示 MPEG ADTS；用音频工具确认 2–4 秒、可播放。
+3. 应用内：设置 → 朗读方式选「服务器合成」，点「试听」，指示器应显示「上次：服务器合成」；把服务器停掉再试听，应静默退回「上次：系统语音」，无弹窗。
+4. 断网试听 → 立即系统语音（不等待超时）。
+
+### 12.5 未做
+
+- 真实服务器联调（等 Hermes 部署）。
+- 服务器侧实现（不在本仓库）。
+- 流式/分句并行合成（当前整段合成后播放，命中缓存即刻出声）。
+
+### 12.6 服务器上线后的实测（2026-11-06）
+
+- `POST https://asr.ysloving.com/tts`（应用同款 body，Nanami）→ **200**、20,592 字节、`audio/mpeg`、`X-Voice: ja-JP-NanamiNeural`、`Cache-Control: no-store`、MPEG ADTS 48 kbps / 24 kHz / mono、3.43 秒、1.65 秒返回。
+- Keita 同句 → 200、19,008 字节、3.17 秒。**与 Hermes 记录的 11,232 字节不一致**：他们用的是更短文本，这里以本机实测为准。
+- 参数校验：空文本 → 400 `at least 1 character`；6000 字 → 400 `at most 1000 characters`；都不回显原文。非法音色 → **502**（上游 `No audio was received`）。
+- 契约修正：README 曾写 400，FastAPI 默认 422 且会回显原文；Hermes 已改为统一 400 且不回显。客户端本来就没有 422 分支（所有非 2xx 一律静默回落），本轮只加了两条断言固化这个行为。
+
+### 12.7 本轮新增（配合实测）
+
+- **1000 字上限**：`TextChunker` 按句读把长文本切成 ≤1000 字的段，`SpeechService` 逐段合成后顺序播放（缓存键按段计算）；单段仍超限时 `ServerTTSService` 在发请求前就拦截。
+- **默认地址**：`ServerDefaults.baseURL = https://asr.ysloving.com` 作为「云端转写」地址的默认值，朗读模式因此默认解析为「服务器合成」；清空即退回 Edge 直连。地址只是主机名，无令牌。
+- **禁用语义收紧**：`TranscriptionClient` 现在先看 `isEnabled`，关闭时不会发出任何请求（地址预填也不会）。
