@@ -17,19 +17,19 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>0.9.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>11</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>跟读练习需要录音：录音只保存在本机 Documents/Shadowing，用于和原句对比，不会上传。</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>个人学习用途。词典数据 CC BY-SA 4.0。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>跟读练习需要录音：录音只保存在本机 Documents/Shadowing，用于和原句对比，不会上传。</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>
