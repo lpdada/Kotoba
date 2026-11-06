@@ -8,6 +8,7 @@ struct WordDetailView: View {
     @State private var noteDraft = ""
     @State private var didLoadNote = false
     @State private var showDecks = false
+    @State private var selectedKanji: KanjiSelection?
 
     private var word: SavedWord? { app.word(id: wordID) }
     private var entry: DictEntry? {
@@ -22,6 +23,7 @@ struct WordDetailView: View {
                     header(word)
                     scheduleCard(word)
                     meaningsCard(word)
+                    kanjiCardSection(word)
                     noteCard(word)
                     if let sentence = word.sourceSentence, !sentence.isEmpty {
                         sourceCard(sentence)
@@ -49,6 +51,10 @@ struct WordDetailView: View {
                 noteDraft = word.note
                 didLoadNote = true
             }
+        }
+        .sheet(item: $selectedKanji) { selection in
+            KanjiDetailView(literal: selection.literal)
+                .environmentObject(app)
         }
         .sheet(isPresented: $showDecks) {
             if let word {
@@ -160,6 +166,39 @@ struct WordDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
+    }
+
+    private func kanjiCardSection(_ word: SavedWord) -> some View {
+        let characters = app.kanji.entries(in: word.word)
+        return Group {
+            if !characters.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "汉字", subtitle: "点开看读音、部首与例词")
+                    HStack(spacing: 8) {
+                        ForEach(characters) { kanjiEntry in
+                            Button {
+                                selectedKanji = KanjiSelection(literal: kanjiEntry.literal)
+                            } label: {
+                                VStack(spacing: 2) {
+                                    Text(kanjiEntry.literal)
+                                        .font(.system(size: 22, design: .serif))
+                                        .foregroundStyle(Theme.ink)
+                                    Text(kanjiEntry.levelLabel)
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(Theme.secondaryText)
+                                }
+                                .frame(width: 52, height: 52)
+                                .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .card()
+            }
+        }
     }
 
     private func noteCard(_ word: SavedWord) -> some View {

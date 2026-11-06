@@ -10,6 +10,7 @@ struct ProgressScreen: View {
                 streakCard
                 heatmapCard
                 distributionCard
+                kanjiStatsCard
                 totalsCard
                 historyCard
                 dictionaryCard
@@ -115,6 +116,52 @@ struct ProgressScreen: View {
             .frame(height: 130)
         }
         .card()
+    }
+
+    private var kanjiStatsCard: some View {
+        let stats = app.kanjiLevelStats
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(
+                title: "汉字",
+                subtitle: "共 \(app.kanji.count) 字 ・ 复习中 \(app.kanjiCards.count) ・ 已熟悉 \(app.kanjiLearnedCount)"
+            )
+            VStack(spacing: 8) {
+                ForEach(stats) { stat in
+                    HStack(spacing: 8) {
+                        Text(stat.label)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.secondaryText)
+                            .frame(width: 44, alignment: .leading)
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Theme.hairline)
+                                Capsule()
+                                    .fill(Theme.accent)
+                                    .frame(width: max(geometry.size.width * ratio(stat), 3))
+                            }
+                        }
+                        .frame(height: 6)
+                        Text("\(stat.learned)/\(stat.total)")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(Theme.secondaryText)
+                            .frame(width: 62, alignment: .trailing)
+                    }
+                }
+            }
+            if app.kanjiCards.isEmpty {
+                Text("生词页点「汉字」进入汉字表，挑几个字加入复习，它们会和生词一起排队。")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func ratio(_ stat: KanjiLevelStat) -> Double {
+        guard stat.total > 0 else { return 0 }
+        return min(Double(stat.learned) / Double(stat.total), 1)
     }
 
     private var totalsCard: some View {

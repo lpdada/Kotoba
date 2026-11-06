@@ -12,6 +12,7 @@
 		B900CC344C2DEEBF4A9A6EB3 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A877EB6AEB88F7EC114B13 /* OnboardingView.swift */; };
 		8EB092CEF87A3CF836A032A1 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F9707B99856AE83C4FAB10 /* RootView.swift */; };
 		D257CA01047C96BB903E5999 /* Clip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E0ABD824372E8B847EBB3B7 /* Clip.swift */; };
+		A2B44B4E4D47B51E18D08735 /* KanjiModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */; };
 		796539143332C54C3FB0938F /* LanguageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */; };
 		66F0CF21DF6C1CB5BB7E7133 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 280F2AADEE1D1F6701969D7F /* ProfileModels.swift */; };
 		F33CB26456A0C7567B9DE8E6 /* Scheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06226ED7ADC31950497A023C /* Scheduling.swift */; };
@@ -24,6 +25,7 @@
 		882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */; };
 		09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */; };
 		2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */; };
+		ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238B2904DEB16DD5BE2512CB /* KanjiStore.swift */; };
 		858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */; };
 		90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8588A61FB4C378F62A67BE /* ReviewSession.swift */; };
 		95EFE37755B701C9D7146EB1 /* ShadowingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */; };
@@ -48,10 +50,13 @@
 		C7F63A3886229C864218CC0A /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029B59022EF31C921D015940 /* DiagnosticsView.swift */; };
 		8AE45F4D18CB634054006844 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11EC73C6BF3644B8C7EB721 /* SettingsView.swift */; };
 		1C9DCE24D82D308215E11856 /* DecksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D36E6B1431612B7CD06EB56B /* DecksView.swift */; };
+		3424C6E5A899CC37D7A86DEF /* KanjiDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */; };
+		13C5753C732B0513267A9645 /* KanjiListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */; };
 		FB9067E63E145AEBF58C900E /* VocabularyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B97171F10B2AA037E74D6CB /* VocabularyView.swift */; };
 		2A2996F089DB95073F646A44 /* WordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B27BE08C7E93816CCAE4B88 /* WordDetailView.swift */; };
 		A27A9B188E73EDCB8BC41AF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CEDD6D2C981ABA3B37AC5434 /* Assets.xcassets */; };
 		4969110905EB3499DD2C9B8A /* Dictionary.json in Resources */ = {isa = PBXBuildFile; fileRef = 2815E36553778A9C920DB249 /* Dictionary.json */; };
+		A65D6F38B351B9550FC11CB5 /* Kanji.json in Resources */ = {isa = PBXBuildFile; fileRef = 3252A062D4F88D41CE8B12BE /* Kanji.json */; };
 		F1AEC39C79005117D543E813 /* SampleClips.json in Resources */ = {isa = PBXBuildFile; fileRef = CE39B27731FD4F67BAF440F1 /* SampleClips.json */; };
 /* End PBXBuildFile section */
 
@@ -61,6 +66,7 @@
 		A7A877EB6AEB88F7EC114B13 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C0F9707B99856AE83C4FAB10 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		9E0ABD824372E8B847EBB3B7 /* Clip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clip.swift; sourceTree = "<group>"; };
+		B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiModels.swift; sourceTree = "<group>"; };
 		A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageModels.swift; sourceTree = "<group>"; };
 		280F2AADEE1D1F6701969D7F /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
 		06226ED7ADC31950497A023C /* Scheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scheduling.swift; sourceTree = "<group>"; };
@@ -73,6 +79,7 @@
 		4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryStore.swift; sourceTree = "<group>"; };
 		B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRanker.swift; sourceTree = "<group>"; };
 		108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntensiveListening.swift; sourceTree = "<group>"; };
+		238B2904DEB16DD5BE2512CB /* KanjiStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiStore.swift; sourceTree = "<group>"; };
 		AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceStore.swift; sourceTree = "<group>"; };
 		7D8588A61FB4C378F62A67BE /* ReviewSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSession.swift; sourceTree = "<group>"; };
 		E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShadowingRecorder.swift; sourceTree = "<group>"; };
@@ -97,10 +104,13 @@
 		029B59022EF31C921D015940 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		B11EC73C6BF3644B8C7EB721 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D36E6B1431612B7CD06EB56B /* DecksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecksView.swift; sourceTree = "<group>"; };
+		7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiDetailView.swift; sourceTree = "<group>"; };
+		1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiListView.swift; sourceTree = "<group>"; };
 		4B97171F10B2AA037E74D6CB /* VocabularyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyView.swift; sourceTree = "<group>"; };
 		3B27BE08C7E93816CCAE4B88 /* WordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailView.swift; sourceTree = "<group>"; };
 		CEDD6D2C981ABA3B37AC5434 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2815E36553778A9C920DB249 /* Dictionary.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Dictionary.json; sourceTree = "<group>"; };
+		3252A062D4F88D41CE8B12BE /* Kanji.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Kanji.json; sourceTree = "<group>"; };
 		CE39B27731FD4F67BAF440F1 /* SampleClips.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SampleClips.json; sourceTree = "<group>"; };
 		CFE56D53C96DB293AF4951EE /* Kotoba.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kotoba.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB09FB3716042A56E0797330 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -161,6 +171,7 @@
 			isa = PBXGroup;
 			children = (
 				9E0ABD824372E8B847EBB3B7 /* Clip.swift */,
+				B5B8516FF667BB98A35EEED6 /* KanjiModels.swift */,
 				A514D4C5288D16FFC44E39C7 /* LanguageModels.swift */,
 				280F2AADEE1D1F6701969D7F /* ProfileModels.swift */,
 				06226ED7ADC31950497A023C /* Scheduling.swift */,
@@ -174,6 +185,7 @@
 			children = (
 				CEDD6D2C981ABA3B37AC5434 /* Assets.xcassets */,
 				2815E36553778A9C920DB249 /* Dictionary.json */,
+				3252A062D4F88D41CE8B12BE /* Kanji.json */,
 				CE39B27731FD4F67BAF440F1 /* SampleClips.json */,
 			);
 			path = Resources;
@@ -190,6 +202,7 @@
 				4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */,
 				B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */,
 				108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */,
+				238B2904DEB16DD5BE2512CB /* KanjiStore.swift */,
 				AD95CE3E5856E9D3FB717BC2 /* PersistenceStore.swift */,
 				7D8588A61FB4C378F62A67BE /* ReviewSession.swift */,
 				E449EFB0A1FD64A78523EC90 /* ShadowingRecorder.swift */,
@@ -269,6 +282,8 @@
 			isa = PBXGroup;
 			children = (
 				D36E6B1431612B7CD06EB56B /* DecksView.swift */,
+				7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */,
+				1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */,
 				4B97171F10B2AA037E74D6CB /* VocabularyView.swift */,
 				3B27BE08C7E93816CCAE4B88 /* WordDetailView.swift */,
 			);
@@ -336,6 +351,7 @@
 			files = (
 				A27A9B188E73EDCB8BC41AF7 /* Assets.xcassets in Resources */,
 				4969110905EB3499DD2C9B8A /* Dictionary.json in Resources */,
+				A65D6F38B351B9550FC11CB5 /* Kanji.json in Resources */,
 				F1AEC39C79005117D543E813 /* SampleClips.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -352,6 +368,7 @@
 				B900CC344C2DEEBF4A9A6EB3 /* OnboardingView.swift in Sources */,
 				8EB092CEF87A3CF836A032A1 /* RootView.swift in Sources */,
 				D257CA01047C96BB903E5999 /* Clip.swift in Sources */,
+				A2B44B4E4D47B51E18D08735 /* KanjiModels.swift in Sources */,
 				796539143332C54C3FB0938F /* LanguageModels.swift in Sources */,
 				66F0CF21DF6C1CB5BB7E7133 /* ProfileModels.swift in Sources */,
 				F33CB26456A0C7567B9DE8E6 /* Scheduling.swift in Sources */,
@@ -364,6 +381,7 @@
 				882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */,
 				09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */,
 				2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */,
+				ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */,
 				858244130918CCB5BBD90BD7 /* PersistenceStore.swift in Sources */,
 				90B7EE13E8F444AA1D4D5276 /* ReviewSession.swift in Sources */,
 				95EFE37755B701C9D7146EB1 /* ShadowingRecorder.swift in Sources */,
@@ -388,6 +406,8 @@
 				C7F63A3886229C864218CC0A /* DiagnosticsView.swift in Sources */,
 				8AE45F4D18CB634054006844 /* SettingsView.swift in Sources */,
 				1C9DCE24D82D308215E11856 /* DecksView.swift in Sources */,
+				3424C6E5A899CC37D7A86DEF /* KanjiDetailView.swift in Sources */,
+				13C5753C732B0513267A9645 /* KanjiListView.swift in Sources */,
 				FB9067E63E145AEBF58C900E /* VocabularyView.swift in Sources */,
 				2A2996F089DB95073F646A44 /* WordDetailView.swift in Sources */,
 			);
@@ -507,7 +527,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -516,7 +536,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -530,7 +550,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -539,7 +559,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

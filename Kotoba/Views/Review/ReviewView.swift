@@ -92,6 +92,12 @@ struct ReviewView: View {
                     )
             }
 
+            if app.kanjiDueCount > 0 || !app.kanjiCards.isEmpty {
+                Text("其中汉字卡 \(app.kanjiCards.count) 张，今天到期 \(app.kanjiDueCount) 张")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+
             PrimaryActionButton(
                 title: app.dueReviewCount() > 0 ? "开始复习" : "先练习新词",
                 systemImage: "play.fill",
@@ -249,8 +255,10 @@ struct ReviewView: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
-                if session.word != nil {
-                    LevelBadge(level: session.word?.level)
+                if let word = session.word {
+                    LevelBadge(level: word.level)
+                } else if let kanji = session.kanjiCard {
+                    TagLabel(text: "汉字 \(kanji.literal)", tint: Theme.lilac)
                 } else {
                     TagLabel(text: "整句")
                 }
@@ -354,6 +362,9 @@ struct ReviewView: View {
         }
         if let sentence = session.sentence {
             return SpacedRepetition.previewInterval(state: sentence.scheduling, rating: rating)
+        }
+        if let kanji = session.kanjiCard {
+            return SpacedRepetition.previewInterval(state: kanji.scheduling, rating: rating)
         }
         return ""
     }

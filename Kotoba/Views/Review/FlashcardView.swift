@@ -4,6 +4,7 @@ import SwiftUI
 struct FlashcardFace: View {
     let word: SavedWord?
     let sentence: SentenceCard?
+    var kanjiLiteral: String? = nil
     let isFlipped: Bool
     var furiganaEnabled: Bool = true
     var speechRate: Double = 0.45
@@ -15,6 +16,8 @@ struct FlashcardFace: View {
         VStack(alignment: .leading, spacing: 12) {
             if let word {
                 wordFace(word)
+            } else if let kanjiLiteral {
+                kanjiFace(kanjiLiteral)
             } else if let sentence {
                 sentenceFace(sentence)
             } else {
@@ -106,6 +109,84 @@ struct FlashcardFace: View {
                 Text("第 \(word.scheduling.reviewCount) 次")
                     .font(.system(size: 10))
                     .foregroundStyle(Theme.secondaryText)
+            }
+        } else {
+            Spacer(minLength: 0)
+            Text("想一想读音和意思，再点卡片翻面")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.secondaryText)
+        }
+    }
+
+    // MARK: Kanji
+
+    @ViewBuilder
+    private func kanjiFace(_ literal: String) -> some View {
+        let entry = app.kanjiEntry(literal)
+        let card = app.kanjiCard(literal)
+        let examples = entry.map { app.exampleWords(for: $0, limit: 3) } ?? []
+
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(literal)
+                    .font(.system(size: 56, weight: .medium, design: .serif))
+                    .foregroundStyle(Theme.ink)
+                Text("汉字卡")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            Spacer()
+            Button {
+                onSpeak(literal)
+            } label: {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .background(Theme.accentSoft, in: Circle())
+                    .foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.plain)
+        }
+
+        if isFlipped, let entry {
+            Hairline()
+            VStack(alignment: .leading, spacing: 6) {
+                if !entry.pinyin.isEmpty {
+                    Text(entry.pinyin)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.accent)
+                }
+                if !entry.onReadings.isEmpty {
+                    Text("音：\(entry.onReadings.joined(separator: "、"))")
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundStyle(Theme.ink)
+                }
+                if !entry.kunReadings.isEmpty {
+                    Text("训：\(entry.kunReadings.prefix(3).joined(separator: "、"))")
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundStyle(Theme.ink)
+                }
+                Text(entry.hasChineseGloss ? entry.chineseGloss : entry.meanings.joined(separator: " / "))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !examples.isEmpty {
+                    Text(examples.map { "\($0.word)（\($0.reading)）\($0.meaning)" }.joined(separator: " ・ "))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 6) {
+                TagLabel(text: entry.levelLabel, tint: Theme.accent)
+                TagLabel(text: "\(entry.strokes) 画", tint: Theme.secondaryText)
+                Spacer()
+                if let card {
+                    Text("第 \(card.scheduling.reviewCount) 次")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.secondaryText)
+                }
             }
         } else {
             Spacer(minLength: 0)

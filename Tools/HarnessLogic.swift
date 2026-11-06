@@ -417,6 +417,100 @@ struct HarnessLogic {
                 shadowRoundTrip = (decoded.shadowingRecords ?? []).count == app.shadowingRecords.count
             }
             check("shadowing survives a backup round trip", shadowRoundTrip)
+
+            print("\n== kanji layer ==")
+            var kanjiLoaded = false
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: "Kotoba/Resources/Kanji.json")) {
+                try? app.kanji.load(data: data)
+                kanjiLoaded = app.kanji.isLoaded
+            }
+            check("kanji data parses", kanjiLoaded && app.kanji.count > 2_000, "\(app.kanji.count) kanji")
+            check(
+                "every entry has strokes, radical and meaning",
+                app.kanji.entries.allSatisfy { $0.strokes > 0 && $0.radicalNumber > 0 && !$0.meanings.isEmpty },
+                "\(app.kanji.entries.count) checked"
+            )
+            check(
+                "every entry has Japanese readings",
+                app.kanji.entries.allSatisfy { !$0.onReadings.isEmpty || !$0.kunReadings.isEmpty }
+            )
+            check(
+                "levels cover N5-N1",
+                Set(app.kanji.entries.map(\.levelSortKey)).isSuperset(of: [1, 2, 3, 4])
+            )
+
+            let sun = app.kanji.entry(for: "日")
+            check(
+                "detail fields for 日",
+                sun?.strokes == 4
+                    && sun?.onReadings.contains("ニチ") == true
+                    && sun?.chineseGloss == "日；太阳"
+                    && sun?.pinyin == "rì"
+                    && sun?.levelLabel == "N5",
+                sun.map { "\($0.strokes)画 \($0.pinyin) \($0.chineseGloss)" } ?? "missing"
+            )
+            check("Chinese gloss covers N5+N4", app.kanji.entries.filter { $0.jlptLevel == 4 || $0.jlptLevel == 3 }.allSatisfy(\.hasChineseGloss))
+
+            if let sun {
+                let examples = app.exampleWords(for: sun, limit: 4)
+                check("example words picked", !examples.isEmpty && examples.count <= 4, "\(examples.count) words")
+                check("example words contain the kanji", examples.allSatisfy { $0.word.contains("日") })
+                check(
+                    "example words carry reading and meaning",
+                    examples.allSatisfy { !$0.reading.isEmpty && !$0.meaning.isEmpty }
+                )
+                check("example words prefer compounds", examples.allSatisfy { $0.word.count > 1 })
+                check(
+                    "example words are ordered by level",
+                    zip(examples, examples.dropFirst()).allSatisfy { ($0.level?.rank ?? 9) <= ($1.level?.rank ?? 9) }
+                )
+            }
+
+            app.kanjiCards = []
+            if let entry = app.kanji.entry(for: "日") {
+                _ = app.saveKanjiCard(entry)
+                check("kanji card saved", app.kanjiCards.count == 1)
+                let firstStep = app.applyKanjiRating(.good, literal: "日")
+                let firstGap = (firstStep?.scheduling.dueAt.timeIntervalSinceNow ?? 0) / 60
+                check("kanji card reuses the 1-minute step", firstGap > 0.4 && firstGap < 2, String(format: "%.1f min", firstGap))
+                _ = app.applyKanjiRating(.good, literal: "日")
+                _ = app.applyKanjiRating(.good, literal: "日")
+                check("kanji card graduates to a day", (app.kanjiCard("日")?.scheduling.intervalDays ?? 0) > 0.9)
+                check("kanji rating counts as a review", app.today.reviews >= 3, "\(app.today.reviews) reviews")
+            }
+
+            app.decks = [Deck(id: "k-deck", name: "K", newPerDay: 5, reviewLimit: 20)]
+            app.profile.dailyNewWords = 5
+            app.profile.dailyReviewLimit = 20
+            app.words = []
+            if let moon = app.kanji.entry(for: "月") { _ = app.saveKanjiCard(moon) }
+            let mixedQueue = app.makeReviewQueue(includeNew: true)
+            check(
+                "kanji cards join the review queue",
+                mixedQueue.contains { item in
+                    if case .kanji = item.kind { return true }
+                    return false
+                },
+                "\(mixedQueue.count) cards"
+            )
+            check("kanji stats per level", app.kanjiLevelStats.contains { $0.label == "N5" && $0.total > 90 })
+            if var learnedCard = app.kanjiCard("日") {
+                learnedCard.scheduling.intervalDays = 21
+                learnedCard.familiarity = 4
+                app.updateKanjiCard(learnedCard)
+            }
+            check("learned kanji counted", app.kanjiLearnedCount >= 1, "\(app.kanjiLearnedCount) learned")
+
+            var kanjiSnapshot = AppSnapshot()
+            kanjiSnapshot.kanjiCards = app.kanjiCards
+            let kanjiEncoder = JSONEncoder()
+            kanjiEncoder.dateEncodingStrategy = .iso8601
+            var kanjiRoundTrip = false
+            if let data = try? kanjiEncoder.encode(kanjiSnapshot),
+               let decoded = try? BackupService.decodeSnapshot(from: data) {
+                kanjiRoundTrip = (decoded.kanjiCards ?? []).count == app.kanjiCards.count
+            }
+            check("kanji cards survive a backup round trip", kanjiRoundTrip)
             check("state file without the new key still decodes", {
                 var full = AppSnapshot()
                 full.words = [backupWord]

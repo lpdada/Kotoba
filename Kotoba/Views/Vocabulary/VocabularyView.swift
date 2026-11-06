@@ -41,6 +41,7 @@ struct VocabularyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     summaryCard
+                    kanjiEntryRow
                     modePicker
                     searchField
                     if mode == .notebook {
@@ -116,6 +117,38 @@ struct VocabularyView: View {
             }
         }
         .card()
+    }
+
+    private var kanjiEntryRow: some View {
+        NavigationLink {
+            KanjiListView()
+        } label: {
+            HStack(spacing: 12) {
+                Text("漢")
+                    .font(.system(size: 20, weight: .medium, design: .serif))
+                    .frame(width: 34, height: 34)
+                    .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("汉字")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    Text("已熟悉 \(app.kanjiLearnedCount) ・ 复习中 \(app.kanjiCards.count) ・ 共 \(app.kanji.count) 字")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.secondaryText)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            .padding(12)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.hairline, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var modePicker: some View {

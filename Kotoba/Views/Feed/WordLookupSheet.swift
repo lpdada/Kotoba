@@ -14,6 +14,7 @@ struct WordLookupSheet: View {
     @State private var isExplaining = false
     @State private var noteDraft = ""
     @State private var showNoteEditor = false
+    @State private var selectedKanji: KanjiSelection?
 
     private var surface: String { token.text }
 
@@ -22,6 +23,7 @@ struct WordLookupSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
+                    kanjiStrip
                     meaningsSection
                     explanationSection
                     examplesSection
@@ -46,6 +48,10 @@ struct WordLookupSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .task { await load() }
+        .sheet(item: $selectedKanji) { selection in
+            KanjiDetailView(literal: selection.literal)
+                .environmentObject(app)
+        }
     }
 
     // MARK: Header
@@ -98,6 +104,35 @@ struct WordLookupSheet: View {
             }
         }
         .card()
+    }
+
+    // MARK: Kanji
+
+    private var kanjiStrip: some View {
+        let characters = app.kanji.entries(in: entry?.word ?? surface)
+        return Group {
+            if !characters.isEmpty {
+                HStack(spacing: 6) {
+                    Text("汉字")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.secondaryText)
+                    ForEach(characters) { kanjiEntry in
+                        Button {
+                            selectedKanji = KanjiSelection(literal: kanjiEntry.literal)
+                        } label: {
+                            Text(kanjiEntry.literal)
+                                .font(.system(size: 15, design: .serif))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .foregroundStyle(Theme.accent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
     }
 
     // MARK: Meanings

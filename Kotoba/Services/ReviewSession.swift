@@ -14,6 +14,7 @@ final class ReviewSessionModel: ObservableObject {
         enum Kind: Hashable {
             case word(String)
             case sentence(String)
+            case kanji(String)
         }
 
         let kind: Kind
@@ -22,6 +23,7 @@ final class ReviewSessionModel: ObservableObject {
             switch kind {
             case .word(let identifier): return "w:" + identifier
             case .sentence(let identifier): return "s:" + identifier
+            case .kanji(let literal): return "k:" + literal
             }
         }
     }
@@ -31,6 +33,7 @@ final class ReviewSessionModel: ObservableObject {
         let rating: ReviewRating
         let previousWord: SavedWord?
         let previousSentence: SentenceCard?
+        let previousKanji: KanjiCard?
     }
 
     @Published private(set) var phase: Phase = .idle
@@ -62,6 +65,11 @@ final class ReviewSessionModel: ObservableObject {
     var sentence: SentenceCard? {
         guard case .sentence(let identifier)? = current?.kind else { return nil }
         return app.sentence(id: identifier)
+    }
+
+    var kanjiCard: KanjiCard? {
+        guard case .kanji(let literal)? = current?.kind else { return nil }
+        return app.kanjiCard(literal)
     }
 
     var progress: Double {
@@ -114,11 +122,15 @@ final class ReviewSessionModel: ObservableObject {
         case .word(let identifier):
             let previous = app.word(id: identifier)
             _ = app.applyWordRating(rating, wordID: identifier)
-            logs.append(Log(item: item, rating: rating, previousWord: previous, previousSentence: nil))
+            logs.append(Log(item: item, rating: rating, previousWord: previous, previousSentence: nil, previousKanji: nil))
         case .sentence(let identifier):
             let previous = app.sentence(id: identifier)
             _ = app.applySentenceRating(rating, cardID: identifier)
-            logs.append(Log(item: item, rating: rating, previousWord: nil, previousSentence: previous))
+            logs.append(Log(item: item, rating: rating, previousWord: nil, previousSentence: previous, previousKanji: nil))
+        case .kanji(let literal):
+            let previous = app.kanjiCard(literal)
+            _ = app.applyKanjiRating(rating, literal: literal)
+            logs.append(Log(item: item, rating: rating, previousWord: nil, previousSentence: nil, previousKanji: previous))
         }
         index += 1
         isFlipped = false
@@ -143,6 +155,11 @@ final class ReviewSessionModel: ObservableObject {
             if let previous = last.previousSentence,
                let position = app.sentenceCards.firstIndex(where: { $0.id == identifier }) {
                 app.sentenceCards[position] = previous
+            }
+        case .kanji(let literal):
+            if let previous = last.previousKanji,
+               let position = app.kanjiCards.firstIndex(where: { $0.literal == literal }) {
+                app.kanjiCards[position] = previous
             }
         }
         // Roll back the daily counters the rating added.

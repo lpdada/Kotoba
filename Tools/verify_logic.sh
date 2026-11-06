@@ -19,6 +19,7 @@ FILES=(
   Kotoba/Model/Scheduling.swift
   Kotoba/Model/VocabularyModels.swift
   Kotoba/Model/ProfileModels.swift
+  Kotoba/Model/KanjiModels.swift
   Kotoba/Services/Deinflector.swift
   Kotoba/Services/DictionaryStore.swift
   Kotoba/Services/Tokenizer.swift
@@ -27,6 +28,7 @@ FILES=(
   Kotoba/Services/ClipLibrary.swift
   Kotoba/Services/ReviewSession.swift
   Kotoba/Services/SubtitleImport.swift
+  Kotoba/Services/KanjiStore.swift
   Kotoba/Services/IntensiveListening.swift
   Kotoba/Services/BackupService.swift
   Kotoba/App/AppModel.swift

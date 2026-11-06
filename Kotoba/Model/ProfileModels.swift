@@ -140,6 +140,8 @@ struct AppSnapshot: Codable {
     var streakDayKeys: [String] = []
     /// Optional so state files written before shadowing existed still decode.
     var shadowingRecords: [ShadowingRecord]?
+    /// Optional for the same reason: added with the kanji layer.
+    var kanjiCards: [KanjiCard]?
 }
 
 // MARK: - Review load forecast

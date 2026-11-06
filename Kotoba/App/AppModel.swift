@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published var savedClipIDs: Set<String> = []
     @Published var explanations: [String: WordExplanation] = [:]
     @Published var shadowingRecords: [ShadowingRecord] = []
+    @Published var kanjiCards: [KanjiCard] = []
     @Published var metricsByClip: [String: ClipMetrics] = [:]
     @Published var toast: String?
     @Published var aiKeyStored = false
@@ -30,6 +31,7 @@ final class AppModel: ObservableObject {
 
     let store: PersistenceStore
     let dictionary = DictionaryStore()
+    let kanji = KanjiStore()
     let library: ClipLibrary
     let speech = SpeechService()
     lazy var tokenizer = Tokenizer(dictionary: dictionary)
@@ -49,6 +51,7 @@ final class AppModel: ObservableObject {
         guard !isReady else { return }
         bootstrapMessage = "正在准备词典…"
         dictionary.loadBundled()
+        kanji.loadBundled()
 
         bootstrapMessage = "正在载入学习记录…"
         let snapshot = store.load()
@@ -74,6 +77,7 @@ final class AppModel: ObservableObject {
         savedClipIDs = Set(snapshot.savedClipIDs)
         explanations = snapshot.explanations
         shadowingRecords = snapshot.shadowingRecords ?? []
+        kanjiCards = snapshot.kanjiCards ?? []
     }
 
     private func makeSnapshot() -> AppSnapshot {
@@ -88,6 +92,7 @@ final class AppModel: ObservableObject {
         snapshot.savedClipIDs = Array(savedClipIDs)
         snapshot.explanations = explanations
         snapshot.shadowingRecords = shadowingRecords
+        snapshot.kanjiCards = kanjiCards
         snapshot.streakDayKeys = Array(activity.keys).sorted()
         return snapshot
     }
@@ -259,7 +264,8 @@ final class AppModel: ObservableObject {
     func dueReviewCount(at date: Date = Date()) -> Int {
         let wordsDue = words.filter { !$0.isIgnored && $0.scheduling.isDue(at: date) }.count
         let sentencesDue = sentenceCards.filter { $0.scheduling.isDue(at: date) }.count
-        return wordsDue + sentencesDue
+        let kanjiDue = kanjiCards.filter { $0.scheduling.isDue(at: date) }.count
+        return wordsDue + sentencesDue + kanjiDue
     }
 
     func newWordCount() -> Int {
@@ -272,6 +278,8 @@ final class AppModel: ObservableObject {
         // Reviews respect both the per-deck limit and the global daily cap.
         var reviewAllowance = deckAllowances(newCards: false)
         var remainingReviews = profile.dailyReviewLimit
+        var newAllowance = deckAllowances(newCards: true)
+        var remainingNew = profile.dailyNewWords
         let dueWords = words
             .filter { !$0.isIgnored && !$0.scheduling.isNew && $0.scheduling.isDue(at: now) }
             .sorted { $0.scheduling.dueAt < $1.scheduling.dueAt }
@@ -283,8 +291,6 @@ final class AppModel: ObservableObject {
         }
 
         if includeNew {
-            var newAllowance = deckAllowances(newCards: true)
-            var remainingNew = profile.dailyNewWords
             let newWords = words
                 .filter { !$0.isIgnored && $0.scheduling.isNew }
                 .sorted { $0.createdAt > $1.createdAt }
@@ -292,6 +298,26 @@ final class AppModel: ObservableObject {
                 guard remainingNew > 0 else { break }
                 guard consumeAllowance(&newAllowance, for: word) else { continue }
                 items.append(ReviewSessionModel.Item(kind: .word(word.id)))
+                remainingNew -= 1
+            }
+        }
+
+        // Kanji share the same daily budgets so one day never doubles in size.
+        let dueKanji = kanjiCards
+            .filter { $0.scheduling.isDue(at: now) && !$0.scheduling.isNew }
+            .sorted { $0.scheduling.dueAt < $1.scheduling.dueAt }
+        for card in dueKanji {
+            guard remainingReviews > 0 else { break }
+            items.append(ReviewSessionModel.Item(kind: .kanji(card.literal)))
+            remainingReviews -= 1
+        }
+        if includeNew {
+            let newKanji = kanjiCards
+                .filter { $0.scheduling.isNew }
+                .sorted { $0.createdAt > $1.createdAt }
+            for card in newKanji {
+                guard remainingNew > 0 else { break }
+                items.append(ReviewSessionModel.Item(kind: .kanji(card.literal)))
                 remainingNew -= 1
             }
         }
@@ -815,6 +841,82 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: Kanji
+
+    func kanjiEntry(_ literal: String) -> KanjiEntry? { kanji.entry(for: literal) }
+
+    func kanjiCard(_ literal: String) -> KanjiCard? {
+        kanjiCards.first { $0.literal == literal }
+    }
+
+    func exampleWords(for entry: KanjiEntry, limit: Int = 4) -> [KanjiExampleWord] {
+        kanji.exampleWords(for: entry, dictionary: dictionary, limit: limit)
+    }
+
+    @discardableResult
+    func saveKanjiCard(_ entry: KanjiEntry) -> KanjiCard {
+        if let existing = kanjiCard(entry.literal) { return existing }
+        let card = KanjiCard(literal: entry.literal)
+        kanjiCards.insert(card, at: 0)
+        bumpToday { $0.newWords += 1 }
+        scheduleSave()
+        toast = "已加入汉字复习：\(entry.literal)"
+        return card
+    }
+
+    func updateKanjiCard(_ card: KanjiCard) {
+        guard let index = kanjiCards.firstIndex(where: { $0.literal == card.literal }) else { return }
+        kanjiCards[index] = card
+        scheduleSave()
+    }
+
+    func removeKanjiCard(_ card: KanjiCard) {
+        kanjiCards.removeAll { $0.literal == card.literal }
+        scheduleSave()
+    }
+
+    func applyKanjiRating(_ rating: ReviewRating, literal: String, now: Date = Date()) -> KanjiCard? {
+        guard let index = kanjiCards.firstIndex(where: { $0.literal == literal }) else { return nil }
+        let current = kanjiCards[index]
+        let result = SpacedRepetition.review(
+            state: current.scheduling,
+            familiarity: current.familiarity,
+            rating: rating,
+            now: now
+        )
+        var updated = current
+        updated.scheduling = result.state
+        updated.familiarity = result.familiarity
+        kanjiCards[index] = updated
+        recordReview(rating: rating)
+        return updated
+    }
+
+    var kanjiLearnedCount: Int {
+        kanjiCards.filter { $0.familiarity >= 4 }.count
+    }
+
+    var kanjiDueCount: Int {
+        kanjiCards.filter { $0.scheduling.isDue() }.count
+    }
+
+    /// Bundled total, saved cards and learned cards per JLPT band.
+    var kanjiLevelStats: [KanjiLevelStat] {
+        let savedByLevel = Dictionary(grouping: kanjiCards) { card in
+            kanji.entry(for: card.literal)?.levelSortKey ?? 9
+        }
+        return kanji.levelGroups.map { group in
+            let cards = savedByLevel[group.key] ?? []
+            return KanjiLevelStat(
+                key: group.key,
+                label: group.label,
+                total: group.count,
+                saved: cards.count,
+                learned: cards.filter { $0.familiarity >= 4 }.count
+            )
+        }
+    }
+
     // MARK: Backup, restore, interoperability
 
     func restore(from url: URL) throws -> RestoreReport {
@@ -918,6 +1020,7 @@ final class AppModel: ObservableObject {
         savedClipIDs.removeAll()
         explanations.removeAll()
         shadowingRecords.removeAll()
+        kanjiCards.removeAll()
         clearShadowingFolder()
         decks = [Deck.makeDefault()]
         profile = UserProfile(displayName: profile.displayName, onboardingCompleted: false)

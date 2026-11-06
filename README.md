@@ -34,6 +34,8 @@
 | 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
 | 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
 | 逐句精听 | 片段页「精听」入口：按 `line_timings` 或字符数切句，逐句播放、上/下一句、点句跳转、A-B 循环、句末暂停、重复 1–3 次、倍速 0.5–1.5x；退出后恢复原区间与循环 |
+| 汉字层 | 内置 2,387 个常用漢字/JLPT 汉字（KANJIDIC2）：读音、笔画、部首、学年、拼音、英文释义、N5+N4 中文释义；详情页列出例词（从词典自动筛选）。可在「生词 › 汉字」按等级/部首浏览与搜索，也可从点词卡片或词条页的汉字入口直接打开 |
+| 汉字复习 | 汉字卡与生词卡共用同一套 `SpacedRepetition` 与四档评分；复习队列里与生词、整句混合出现，卡片正面是汉字、背面是读音+意思+例词 |
 | 跟读与自评 | `ShadowingRecorder` 录音/回放/与原句对比，每句自评「跟上了 / 再来一次」，记录存到 `Documents/Shadowing`（每句保留最近 3 条），需要麦克风权限 |
 | 自检 | `Diagnostics` 在设备上跑 10 项真实检查：词典载入、精确查词、变形还原、断词完整性、调度阶梯、遗忘回退、间隔增长、状态往返、存储可写、素材库 |
 
@@ -180,6 +182,8 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
 - 词典释义为英文（JMdict 原始数据），界面与语境解释是中文。个人使用时通常配合 AI 解释看中文。
 - 未做后台播放、锁屏控制、通知提醒。
 - 精听模式对 YouTube 片段用本地朗读演示（内嵌播放器无法逐句 seek），只有本地/网络视频文件走真实音轨。
+- 汉字笔顺**尚未实现**：KanjiVG 全量数据体积过大，本轮不做半成品渲染，界面上不显示任何未经验证的笔顺，留待下一轮。
+- 汉字中文释义只覆盖 N5+N4（284 字，人工核对）：KANJIDIC2 本身只有英/西/法/葡释义，其余字显示带标注的英文原义，不做机器翻译。
 - 跟读录音需要麦克风权限；录音文件只在本机 `Documents/Shadowing`，不会随备份导出（备份只含文字记录与文件名）。
 - 视频只支持单文件本地播放或 YouTube 内嵌；不做离线下载。
 - 真机安装需自行配置签名团队；仓库不含描述文件。
@@ -251,6 +255,15 @@ entries: 11794
   PASS  shadowing keeps the newest three — 3 kept；keeps the latest take；keeps the rating
   PASS  records are scoped per sentence；latest lookup works
   PASS  shadowing survives a backup round trip；state file without the new key still decodes
+== kanji layer ==
+  PASS  kanji data parses — 2387 kanji；every entry has strokes, radical and meaning
+  PASS  every entry has Japanese readings；levels cover N5-N1
+  PASS  detail fields for 日 — 4画 rì 日；太阳；Chinese gloss covers N5+N4
+  PASS  example words picked — 4 words；contain the kanji；carry reading and meaning
+  PASS  example words prefer compounds；ordered by level
+  PASS  kanji card reuses the 1-minute step — 1.0 min；graduates to a day
+  PASS  kanji cards join the review queue；kanji stats per level；learned kanji counted
+  PASS  kanji cards survive a backup round trip
 ALL CHECKS PASSED
 ```
 
