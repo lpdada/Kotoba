@@ -287,6 +287,148 @@ struct HarnessLogic {
             check("today folds overdue cards", forecast[0].due == 2, "\(forecast[0].due) today")
             check("day after tomorrow counted", forecast[2].due == 1, "\(forecast[2].due) on day 3")
             check("overdue counted separately", app.overdueCount == 1, "\(app.overdueCount) overdue")
+
+            print("\n== intensive listening: sentences ==")
+            let timedClip = Clip(
+                id: "int-1",
+                title: "timed",
+                series: "test",
+                transcript: "すみません、これ、ください。\nはい。いいえ。",
+                translation: "不好意思，请给我这个。\n是。不是。",
+                level: .n5,
+                durationSeconds: 4,
+                mediaStartSeconds: 1,
+                lineTimings: [
+                    ClipLineTiming(start: 1, end: 3),
+                    ClipLineTiming(start: 3, end: 5)
+                ],
+                media: .generated
+            )
+            let timedSentences = IntensiveSentenceBuilder.build(for: timedClip)
+            check("sentences split by punctuation", timedSentences.count == 3, "\(timedSentences.count) sentences")
+            check("first sentence keeps cue start", timedSentences.first?.start == 1.0, String(format: "%.1f", timedSentences.first?.start ?? -1))
+            check(
+                "second cue starts the split line",
+                timedSentences.count == 3
+                    && abs((timedSentences[1].start) - 3.0) < 0.001
+                    && abs(timedSentences[2].end - 5.0) < 0.001,
+                String(format: "s1 %.2f → s2 end %.2f", timedSentences[safe: 1]?.start ?? -1, timedSentences[safe: 2]?.end ?? -1)
+            )
+            check("translation follows the line", timedSentences.first?.translation == "不好意思，请给我这个。")
+            check("split helper keeps punctuation", IntensiveSentenceBuilder.split("はい。いいえ！").count == 2)
+
+            let untimedClip = Clip(
+                id: "int-2",
+                title: "untimed",
+                series: "test",
+                transcript: "あああ\nいいいい",
+                translation: "a\nb",
+                level: .n5,
+                durationSeconds: 10,
+                media: .generated
+            )
+            let untimedSentences = IntensiveSentenceBuilder.build(for: untimedClip)
+            check("untimed clip divides the window", untimedSentences.count == 2 && untimedSentences[1].start == 5.0,
+                  String(format: "%.1f", untimedSentences[safe: 1]?.start ?? -1))
+
+            print("\n== intensive listening: state machine ==")
+            var engine = IntensiveEngine(
+                sentences: timedSentences,
+                repeatTarget: 2,
+                autoPauseAtEnd: false,
+                loopCurrent: false
+            )
+            check("starts on the first sentence", engine.current?.index == 0)
+            check("repeat 1/3 replays", engine.handleSentenceEnd() == .replay, "\(engine.repeatLabel)")
+            check("repeat 2/2 advances", engine.handleSentenceEnd() == .advance(1), "\(engine.currentIndex)")
+            check("index moved to sentence two", engine.currentIndex == 1)
+
+            var loopEngine = IntensiveEngine(sentences: timedSentences, repeatTarget: 1, autoPauseAtEnd: false, loopCurrent: true)
+            check("A-B loop replays", loopEngine.handleSentenceEnd() == .replay)
+            check("A-B loop keeps the sentence", loopEngine.handleSentenceEnd() == .replay && loopEngine.currentIndex == 0)
+
+            var pauseEngine = IntensiveEngine(sentences: timedSentences, repeatTarget: 1, autoPauseAtEnd: true, loopCurrent: false)
+            check("auto-pause pauses", pauseEngine.handleSentenceEnd() == .pause)
+            check("auto-pause marks waiting", pauseEngine.isAwaitingUser)
+            pauseEngine.resume()
+            check("resume clears waiting", pauseEngine.isAwaitingUser == false)
+
+            var finishEngine = IntensiveEngine(sentences: timedSentences, repeatTarget: 1, autoPauseAtEnd: false, loopCurrent: false)
+            _ = finishEngine.select(timedSentences.count - 1)
+            check("last sentence finishes", finishEngine.handleSentenceEnd() == .finished)
+
+            check("auto-pause toggle stores state", {
+                var toggleEngine = IntensiveEngine(sentences: timedSentences, autoPauseAtEnd: true)
+                toggleEngine.setAutoPause(false)
+                let off = toggleEngine.autoPauseAtEnd == false
+                toggleEngine.setAutoPause(true)
+                return off && toggleEngine.autoPauseAtEnd
+            }())
+            check("repeat count is clamped", {
+                var clampEngine = IntensiveEngine(sentences: timedSentences, repeatTarget: 1)
+                clampEngine.setRepeat(9)
+                let high = clampEngine.repeatTarget == 3
+                clampEngine.setRepeat(0)
+                return high && clampEngine.repeatTarget == 1
+            }())
+            check("next respects the end", {
+                var navEngine = IntensiveEngine(sentences: timedSentences)
+                _ = navEngine.select(timedSentences.count - 1)
+                return navEngine.next() == nil && navEngine.currentIndex == timedSentences.count - 1
+            }())
+            check("previous respects the start", {
+                var navEngine = IntensiveEngine(sentences: timedSentences)
+                return navEngine.previous() == nil && navEngine.currentIndex == 0
+            }())
+
+            print("\n== intensive listening: shadowing records ==")
+            app.shadowingRecords = []
+            for index in 1...5 {
+                app.saveShadowingRecord(
+                    clipID: "int-1",
+                    sentenceIndex: 0,
+                    japanese: "すみません、これ、ください。",
+                    fileName: "take-\(index).m4a",
+                    duration: Double(index),
+                    rating: index == 5 ? .gotIt : .practiceAgain
+                )
+            }
+            check("shadowing keeps the newest three", app.shadowingRecords.count == 3, "\(app.shadowingRecords.count) kept")
+            check("shadowing keeps the latest take", app.shadowingRecords.first?.fileName == "take-5.m4a")
+            check("shadowing keeps the rating", app.shadowingRecords.first?.rating == .gotIt)
+            app.saveShadowingRecord(
+                clipID: "int-1",
+                sentenceIndex: 1,
+                japanese: "はい。",
+                fileName: "other.m4a",
+                duration: 0.8,
+                rating: .practiceAgain
+            )
+            check("records are scoped per sentence", app.records(forClip: "int-1", sentence: 1).count == 1)
+            check("latest lookup works", app.latestRecord(forClip: "int-1", sentence: 0)?.fileName == "take-5.m4a")
+
+            var shadowSnapshot = AppSnapshot()
+            shadowSnapshot.shadowingRecords = app.shadowingRecords
+            let shadowEncoded = JSONEncoder()
+            shadowEncoded.dateEncodingStrategy = .iso8601
+            var shadowRoundTrip = false
+            if let data = try? shadowEncoded.encode(shadowSnapshot),
+               let decoded = try? BackupService.decodeSnapshot(from: data) {
+                shadowRoundTrip = (decoded.shadowingRecords ?? []).count == app.shadowingRecords.count
+            }
+            check("shadowing survives a backup round trip", shadowRoundTrip)
+            check("state file without the new key still decodes", {
+                var full = AppSnapshot()
+                full.words = [backupWord]
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                guard let data = try? encoder.encode(full),
+                      var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+                object.removeValue(forKey: "shadowingRecords")
+                guard let stripped = try? JSONSerialization.data(withJSONObject: object),
+                      let decoded = try? BackupService.decodeSnapshot(from: stripped) else { return false }
+                return decoded.words.count == 1 && (decoded.shadowingRecords ?? []).isEmpty
+            }())
         }
 
         print("\n\(failures == 0 ? "ALL CHECKS PASSED" : "\(failures) CHECK(S) FAILED")")

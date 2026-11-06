@@ -12,6 +12,8 @@ struct ClipPageView: View {
     @State private var mediaURL: URL?
     @State private var isSpeechPlaying = false
     @State private var appearedAt: Date?
+    @State private var showIntensive = false
+    @State private var resumeAfterIntensive = false
 
     var body: some View {
         ZStack {
@@ -40,6 +42,10 @@ struct ClipPageView: View {
         }
         .onChange(of: app.profile.loopClip) { _, loops in
             player.setLooping(loops)
+        }
+        .sheet(isPresented: $showIntensive, onDismiss: restoreAfterIntensive) {
+            IntensiveListeningView(clip: clip, player: player)
+                .environmentObject(app)
         }
         .onChange(of: isActive) { _, active in
             if active {
@@ -207,6 +213,9 @@ struct ClipPageView: View {
             ) {
                 toggleSpeech()
             }
+            railButton(symbol: "headphones", label: "精听") {
+                openIntensive()
+            }
             railButton(symbol: "arrow.counterclockwise", label: "重播") {
                 replay()
             }
@@ -296,6 +305,32 @@ struct ClipPageView: View {
         isSpeechPlaying = true
     }
 
+    private func openIntensive() {
+        resumeAfterIntensive = player.isPlaying || isSpeechPlaying
+        player.pause()
+        if isSpeechPlaying {
+            app.speech.stop()
+            isSpeechPlaying = false
+        }
+        showIntensive = true
+    }
+
+    /// Leaves the per-sentence segment behind and restores the clip's normal loop.
+    private func restoreAfterIntensive() {
+        let start = clip.startSeconds
+        let end = start + (clip.durationSeconds > 0 ? clip.durationSeconds : 12)
+        if mediaURL != nil {
+            player.setSegment(start: start, end: end)
+            player.setLooping(app.profile.loopClip)
+            player.setRate(app.profile.playbackRate)
+            if resumeAfterIntensive {
+                player.play()
+            }
+        } else if resumeAfterIntensive, app.profile.autoplayEnabled {
+            toggleSpeech(forceStart: true)
+        }
+    }
+
     private func replay() {
         if mediaURL != nil {
             player.restart()
@@ -312,13 +347,5 @@ struct ClipPageView: View {
         case .english:
             return clip.translationEN.isEmpty ? clip.translationLines[safe: index] : clip.translationEN
         }
-    }
-}
-
-// MARK: - Safe subscript
-
-extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

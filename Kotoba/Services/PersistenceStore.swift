@@ -9,6 +9,7 @@ final class PersistenceStore {
     let root: URL
     private let stateURL: URL
     private let mediaURL: URL
+    private let shadowingURL: URL
 
     init(fileManager: FileManager = .default) {
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -16,7 +17,9 @@ final class PersistenceStore {
         root = documents
         stateURL = documents.appendingPathComponent("KotobaState.json")
         mediaURL = documents.appendingPathComponent("Media", isDirectory: true)
+        shadowingURL = documents.appendingPathComponent("Shadowing", isDirectory: true)
         try? fileManager.createDirectory(at: mediaURL, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(at: shadowingURL, withIntermediateDirectories: true)
     }
 
     func mediaDirectory() -> URL { mediaURL }
@@ -25,6 +28,15 @@ final class PersistenceStore {
 
     func resolvedMediaURL(named name: String) -> URL? {
         let url = mediaURL(named: name)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func shadowingFolder() -> URL { shadowingURL }
+
+    func shadowingURL(named name: String) -> URL { shadowingURL.appendingPathComponent(name) }
+
+    func resolvedShadowingURL(named name: String) -> URL? {
+        let url = shadowingURL(named: name)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 

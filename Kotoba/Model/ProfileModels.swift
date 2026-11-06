@@ -138,6 +138,8 @@ struct AppSnapshot: Codable {
     var savedClipIDs: [String] = []
     var explanations: [String: WordExplanation] = [:]
     var streakDayKeys: [String] = []
+    /// Optional so state files written before shadowing existed still decode.
+    var shadowingRecords: [ShadowingRecord]?
 }
 
 // MARK: - Review load forecast

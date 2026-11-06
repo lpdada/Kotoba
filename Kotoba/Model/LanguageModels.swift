@@ -258,3 +258,12 @@ enum Kana {
         return result
     }
 }
+
+// MARK: - Shared helpers
+
+extension Array {
+    /// Bounds-checked access used by tokenizers, subtitle import and the UI.
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}

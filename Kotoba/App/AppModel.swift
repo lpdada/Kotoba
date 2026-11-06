@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var watchHistory: [WatchRecord] = []
     @Published var savedClipIDs: Set<String> = []
     @Published var explanations: [String: WordExplanation] = [:]
+    @Published var shadowingRecords: [ShadowingRecord] = []
     @Published var metricsByClip: [String: ClipMetrics] = [:]
     @Published var toast: String?
     @Published var aiKeyStored = false
@@ -72,6 +73,7 @@ final class AppModel: ObservableObject {
         watchHistory = snapshot.watchHistory
         savedClipIDs = Set(snapshot.savedClipIDs)
         explanations = snapshot.explanations
+        shadowingRecords = snapshot.shadowingRecords ?? []
     }
 
     private func makeSnapshot() -> AppSnapshot {
@@ -85,6 +87,7 @@ final class AppModel: ObservableObject {
         snapshot.watchHistory = Array(watchHistory.suffix(400))
         snapshot.savedClipIDs = Array(savedClipIDs)
         snapshot.explanations = explanations
+        snapshot.shadowingRecords = shadowingRecords
         snapshot.streakDayKeys = Array(activity.keys).sorted()
         return snapshot
     }
@@ -743,6 +746,75 @@ final class AppModel: ObservableObject {
         return url.lastPathComponent
     }
 
+    // MARK: Shadowing
+
+    func shadowingDirectory() -> URL { store.shadowingFolder() }
+
+    func audioURL(for record: ShadowingRecord) -> URL? {
+        store.resolvedShadowingURL(named: record.fileName)
+    }
+
+    func records(forClip clipID: String, sentence sentenceIndex: Int) -> [ShadowingRecord] {
+        shadowingRecords
+            .filter { $0.clipID == clipID && $0.sentenceIndex == sentenceIndex }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func latestRecord(forClip clipID: String, sentence sentenceIndex: Int) -> ShadowingRecord? {
+        records(forClip: clipID, sentence: sentenceIndex).first
+    }
+
+    @discardableResult
+    func saveShadowingRecord(
+        clipID: String,
+        sentenceIndex: Int,
+        japanese: String,
+        fileName: String,
+        duration: Double,
+        rating: ShadowingRating
+    ) -> ShadowingRecord {
+        let record = ShadowingRecord(
+            clipID: clipID,
+            sentenceIndex: sentenceIndex,
+            japanese: japanese,
+            fileName: fileName,
+            durationSeconds: max(duration, 0.1),
+            rating: rating
+        )
+        shadowingRecords.insert(record, at: 0)
+        pruneShadowingRecords(clipID: clipID, sentenceIndex: sentenceIndex, keeping: 3)
+        scheduleSave()
+        return record
+    }
+
+    func deleteShadowing(_ record: ShadowingRecord) {
+        if let url = audioURL(for: record) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        shadowingRecords.removeAll { $0.id == record.id }
+        scheduleSave()
+    }
+
+    /// Keeps the newest `keeping` recordings per sentence so the folder cannot grow forever.
+    private func pruneShadowingRecords(clipID: String, sentenceIndex: Int, keeping: Int) {
+        let matching = shadowingRecords.filter { $0.clipID == clipID && $0.sentenceIndex == sentenceIndex }
+        guard matching.count > keeping else { return }
+        for record in matching.dropFirst(keeping) {
+            if let url = audioURL(for: record) {
+                try? FileManager.default.removeItem(at: url)
+            }
+            shadowingRecords.removeAll { $0.id == record.id }
+        }
+    }
+
+    private func clearShadowingFolder() {
+        let folder = store.shadowingFolder()
+        guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
+        for file in files {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     // MARK: Backup, restore, interoperability
 
     func restore(from url: URL) throws -> RestoreReport {
@@ -845,6 +917,8 @@ final class AppModel: ObservableObject {
         watchHistory.removeAll()
         savedClipIDs.removeAll()
         explanations.removeAll()
+        shadowingRecords.removeAll()
+        clearShadowingFolder()
         decks = [Deck.makeDefault()]
         profile = UserProfile(displayName: profile.displayName, onboardingCompleted: false)
         library.setCustom([])

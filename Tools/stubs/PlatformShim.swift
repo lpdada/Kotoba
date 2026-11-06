@@ -49,6 +49,19 @@ final class PersistenceStore {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    func shadowingFolder() -> URL {
+        let url = root.appendingPathComponent("Shadowing", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    func shadowingURL(named name: String) -> URL { shadowingFolder().appendingPathComponent(name) }
+
+    func resolvedShadowingURL(named name: String) -> URL? {
+        let url = shadowingURL(named: name)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
     func load() -> AppSnapshot { AppSnapshot() }
     func save(_ snapshot: AppSnapshot) throws { }
     func exportJSON(_ snapshot: AppSnapshot) throws -> URL { root }

@@ -216,6 +216,7 @@ struct SubtitleClipBuilder {
         var index = 0
         while start < cues.count {
             var texts: [String] = []
+            var timings: [ClipLineTiming] = []
             var lastEnd = cues[start].end
             var cursor = start
             while cursor < cues.count, texts.count < perClip {
@@ -223,6 +224,7 @@ struct SubtitleClipBuilder {
                 let span = cue.end - cues[start].start
                 if !texts.isEmpty && span > maxSpan { break }
                 texts.append(cue.text)
+                timings.append(ClipLineTiming(start: cue.start, end: max(cue.end, cue.start + 0.3)))
                 lastEnd = max(lastEnd, cue.end)
                 cursor += 1
             }
@@ -240,6 +242,7 @@ struct SubtitleClipBuilder {
                     topics: ["字幕导入"],
                     durationSeconds: max(lastEnd - cues[start].start, 1),
                     mediaStartSeconds: cues[start].start,
+                    lineTimings: timings,
                     media: media,
                     attribution: "从字幕文件导入（共 \(cues.count) 条字幕）",
                     custom: true

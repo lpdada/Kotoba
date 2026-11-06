@@ -21,6 +21,8 @@ final class ClipPlayer: ObservableObject {
     private var loadedURL: URL?
     /// When false the clip stops on the segment boundary instead of looping.
     private(set) var isLooping = true
+    /// Intensive listening takes over end-of-segment handling when this is set.
+    var onSegmentEnd: (() -> Void)?
 
     init() {
         player.actionAtItemEnd = .pause
@@ -129,6 +131,10 @@ final class ClipPlayer: ObservableObject {
 
     /// Called when the playhead reaches the end of the requested segment.
     private func handleSegmentEnd() {
+        if let onSegmentEnd {
+            onSegmentEnd()
+            return
+        }
         guard isLooping else {
             pause()
             return
@@ -140,6 +146,22 @@ final class ClipPlayer: ObservableObject {
         let time = CMTime(seconds: segmentStart, preferredTimescale: 600)
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     }
+
+    /// Plays exactly one window, pausing the playhead at its start first.
+    func playRange(start: Double, end: Double) {
+        let boundedStart = max(start, 0)
+        let boundedEnd = max(end, boundedStart + 0.3)
+        setSegment(start: boundedStart, end: boundedEnd)
+        let time = CMTime(seconds: boundedStart, preferredTimescale: 600)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            guard let self else { return }
+            self.player.play()
+            self.isPlaying = true
+        }
+    }
+
+    /// Current segment bounds, for restoring the normal player after a mode switch.
+    var segmentBounds: (start: Double, end: Double) { (segmentStart, segmentEnd) }
 
     func setRate(_ rate: Double) {
         player.defaultRate = Float(rate)

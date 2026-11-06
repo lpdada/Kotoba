@@ -33,6 +33,8 @@
 | 字幕导入 | `SubtitleParser` 解析 SRT / VTT（BOM、CRLF、序号行、`-->` 后位置参数、`<i>` 标签、ASS 覆盖标记、HTML 实体、重复滚动字幕），`SubtitleClipBuilder` 按「每段句数 / 最长秒数」切片；视频文件名留空自动匹配同名媒体，否则用朗读演示 |
 | 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
 | 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
+| 逐句精听 | 片段页「精听」入口：按 `line_timings` 或字符数切句，逐句播放、上/下一句、点句跳转、A-B 循环、句末暂停、重复 1–3 次、倍速 0.5–1.5x；退出后恢复原区间与循环 |
+| 跟读与自评 | `ShadowingRecorder` 录音/回放/与原句对比，每句自评「跟上了 / 再来一次」，记录存到 `Documents/Shadowing`（每句保留最近 3 条），需要麦克风权限 |
 | 自检 | `Diagnostics` 在设备上跑 10 项真实检查：词典载入、精确查词、变形还原、断词完整性、调度阶梯、遗忘回退、间隔增长、状态往返、存储可写、素材库 |
 
 ## 2. 工程结构
@@ -176,7 +178,9 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
 
 - 没有词形标注的训练数据，分词是「词典 + DP」而非形态素分析器；人名、专有名词会切成单字（表现为多个未知词），这时点词会走 AI/本地解释而不是词典释义。
 - 词典释义为英文（JMdict 原始数据），界面与语境解释是中文。个人使用时通常配合 AI 解释看中文。
-- 未做后台播放、锁屏控制、通知提醒；录音跟读也未实现。
+- 未做后台播放、锁屏控制、通知提醒。
+- 精听模式对 YouTube 片段用本地朗读演示（内嵌播放器无法逐句 seek），只有本地/网络视频文件走真实音轨。
+- 跟读录音需要麦克风权限；录音文件只在本机 `Documents/Shadowing`，不会随备份导出（备份只含文字记录与文件名）。
 - 视频只支持单文件本地播放或 YouTube 内嵌；不做离线下载。
 - 真机安装需自行配置签名团队；仓库不含描述文件。
 
@@ -234,6 +238,19 @@ entries: 11794
   PASS  backup round trip / empty backup rejected / newer schema rejected
 == review load forecast ==
   PASS  today folds overdue cards — 2 today；day after tomorrow counted — 1 on day 3
+== intensive listening: sentences ==
+  PASS  sentences split by punctuation — 3 sentences；split helper keeps punctuation
+  PASS  first sentence keeps cue start — 1.0；second cue starts the split line — s1 3.00 → s2 end 5.00
+  PASS  untimed clip divides the window
+== intensive listening: state machine ==
+  PASS  repeat 1/3 replays → repeat 2/2 advances；A-B loop keeps the sentence
+  PASS  auto-pause pauses / auto-pause marks waiting / resume clears waiting
+  PASS  last sentence finishes；auto-pause toggle stores state；repeat count is clamped
+  PASS  next respects the end；previous respects the start
+== intensive listening: shadowing records ==
+  PASS  shadowing keeps the newest three — 3 kept；keeps the latest take；keeps the rating
+  PASS  records are scoped per sentence；latest lookup works
+  PASS  shadowing survives a backup round trip；state file without the new key still decodes
 ALL CHECKS PASSED
 ```
 

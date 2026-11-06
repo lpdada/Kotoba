@@ -78,6 +78,14 @@ enum ClipMedia: Hashable, Codable {
     }
 }
 
+// MARK: - Per-line timing
+
+/// One subtitle line's absolute time window inside the media file.
+struct ClipLineTiming: Codable, Hashable {
+    var start: Double
+    var end: Double
+}
+
 // MARK: - Clip
 
 /// One scrollable learning unit: a short piece of media plus its subtitle lines.
@@ -98,6 +106,9 @@ struct Clip: Identifiable, Codable, Hashable {
     /// Optional offset into the media file where this clip begins (subtitle imports).
     /// Stored as an optional so older clip JSON that lacks the key still decodes.
     var mediaStartSeconds: Double?
+    /// Optional per-line windows, filled by the subtitle importer so intensive
+    /// practice can jump to a single sentence instead of estimating.
+    var lineTimings: [ClipLineTiming]?
     var media: ClipMedia
     var attribution: String
     var custom: Bool
@@ -108,6 +119,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case level, topics
         case durationSeconds = "duration_seconds"
         case mediaStartSeconds = "start_seconds"
+        case lineTimings = "line_timings"
         case media, attribution, custom
     }
 
@@ -123,6 +135,7 @@ struct Clip: Identifiable, Codable, Hashable {
         topics: [String] = [],
         durationSeconds: Double = 12,
         mediaStartSeconds: Double? = nil,
+        lineTimings: [ClipLineTiming]? = nil,
         media: ClipMedia = .generated,
         attribution: String = "",
         custom: Bool = false
@@ -138,6 +151,7 @@ struct Clip: Identifiable, Codable, Hashable {
         self.topics = topics
         self.durationSeconds = durationSeconds
         self.mediaStartSeconds = mediaStartSeconds
+        self.lineTimings = lineTimings
         self.media = media
         self.attribution = attribution
         self.custom = custom
