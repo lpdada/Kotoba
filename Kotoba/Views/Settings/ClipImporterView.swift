@@ -9,6 +9,15 @@ struct ClipImporterView: View {
     @State private var isImportingMedia = false
     @State private var showFormat = false
 
+    // YouTube card
+    @State private var youtubeLink = ""
+    @State private var youtubeTitle = ""
+    @State private var youtubeJapanese = ""
+    @State private var youtubeChinese = ""
+    @State private var youtubeLevel: JLPTLevel = .n5
+    @State private var youtubeStart = ""
+    @State private var youtubeEnd = ""
+
     private var mediaFiles: [String] {
         (try? FileManager.default.contentsOfDirectory(atPath: app.store.mediaDirectory().path))?.sorted() ?? []
     }
@@ -18,6 +27,7 @@ struct ClipImporterView: View {
             VStack(alignment: .leading, spacing: 16) {
                 introCard
                 importCard
+                youtubeCard
                 mediaCard
                 formatCard
                 customClipsCard
@@ -236,6 +246,209 @@ struct ClipImporterView: View {
         return "doc"
     }
 
+    // MARK: YouTube
+
+    private var youtubeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "导入 YouTube 片段", subtitle: "用官方内嵌播放器循环这个区间，视频仍由平台托管")
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("链接或视频 ID")
+                TextField("https://www.youtube.com/watch?v=…", text: $youtubeLink)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 13, design: .monospaced))
+                    .padding(10)
+                    .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                if let parsedLink {
+                    HStack(spacing: 6) {
+                        TagLabel(text: "ID \(parsedLink.videoID)", tint: Theme.accent)
+                        if let start = parsedLink.startSeconds {
+                            TagLabel(text: "链接自带起点 \(Int(start)) 秒", tint: Theme.lilac)
+                        }
+                    }
+                } else if !youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("无法识别这个链接。支持 watch?v= / youtu.be / shorts / embed / live，或直接粘贴 11 位视频 ID。")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.rose)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("标题")
+                TextField("例如：便利店点单", text: $youtubeTitle)
+                    .font(.system(size: 13))
+                    .padding(10)
+                    .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("日文字幕（一行一句）")
+                editor(
+                    text: $youtubeJapanese,
+                    placeholder: "すみません、これ、ください。\nはい、二百円です。",
+                    height: 96
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                fieldLabel("中文翻译（与上一栏一一对应）")
+                editor(
+                    text: $youtubeChinese,
+                    placeholder: "不好意思，请给我这个。\n好的，两百日元。",
+                    height: 78
+                )
+            }
+
+            HStack(alignment: .bottom, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    fieldLabel("等级")
+                    Picker("等级", selection: $youtubeLevel) {
+                        ForEach(JLPTLevel.allCases, id: \.self) { level in
+                            Text(level.label).tag(level)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    fieldLabel("起点（秒）")
+                    TextField("0", text: $youtubeStart)
+                        .keyboardType(.decimalPad)
+                        .font(.system(size: 13, design: .rounded))
+                        .padding(10)
+                        .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    fieldLabel("终点（秒）")
+                    TextField("8", text: $youtubeEnd)
+                        .keyboardType(.decimalPad)
+                        .font(.system(size: 13, design: .rounded))
+                        .padding(10)
+                        .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+            }
+
+            if let duration = youtubeDuration {
+                Text("片段时长 \(String(format: "%.1f", duration)) 秒，播放时在该区间内循环。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.secondaryText)
+            } else if youtubeRangeInvalid {
+                Text("终点需要大于起点。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.rose)
+            }
+
+            PrimaryActionButton(
+                title: "保存为片段",
+                systemImage: "square.and.arrow.down",
+                isEnabled: canSaveYouTube
+            ) {
+                saveYouTubeClip()
+            }
+
+            Text("字幕会在导入后自动分词，点词即可查读音、释义与语境解释；视频不下载、不转码。")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Theme.secondaryText)
+    }
+
+    private func editor(text: Binding<String>, placeholder: String, height: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            if text.wrappedValue.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundStyle(Theme.secondaryText.opacity(0.7))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: text)
+                .font(.system(size: 13, design: .serif))
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .frame(height: height)
+        }
+        .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var parsedLink: YouTubeLinkParser.Parsed? {
+        YouTubeLinkParser.parse(youtubeLink)
+    }
+
+    private var youtubeStartValue: Double {
+        let typed = Double(youtubeStart.trimmingCharacters(in: .whitespaces))
+        return typed ?? parsedLink?.startSeconds ?? 0
+    }
+
+    private var youtubeEndValue: Double? {
+        let typed = Double(youtubeEnd.trimmingCharacters(in: .whitespaces))
+        return typed ?? (youtubeJapanese.isEmpty ? nil : youtubeStartValue + 8)
+    }
+
+    private var youtubeDuration: Double? {
+        guard let end = youtubeEndValue, end > youtubeStartValue else { return nil }
+        return end - youtubeStartValue
+    }
+
+    private var youtubeRangeInvalid: Bool {
+        guard let end = youtubeEndValue else { return false }
+        return end <= youtubeStartValue
+    }
+
+    private var canSaveYouTube: Bool {
+        guard parsedLink != nil else { return false }
+        guard !youtubeJapanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard youtubeDuration != nil else { return false }
+        return true
+    }
+
+    private func saveYouTubeClip() {
+        guard let parsed = parsedLink, let end = youtubeEndValue else { return }
+        let start = youtubeStartValue
+        let transcript = youtubeJapanese.trimmingCharacters(in: .whitespacesAndNewlines)
+        let translation = youtubeChinese.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = youtubeTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clip = Clip(
+            id: "yt-\(parsed.videoID)-\(Int(start))-\(Int(end))",
+            title: title.isEmpty ? "YouTube 片段 \(parsed.videoID)" : title,
+            series: "YouTube",
+            episode: "",
+            transcript: transcript,
+            translation: translation,
+            translationEN: "",
+            level: youtubeLevel,
+            topics: [],
+            durationSeconds: max(end - start, 1),
+            media: .youtube(id: parsed.videoID, start: start, end: end),
+            attribution: "YouTube 内嵌播放，视频由平台托管",
+            custom: true
+        )
+        app.addCustomClip(clip)
+        app.toast = "已加入片段库：\(clip.title)"
+        youtubeLink = ""
+        youtubeTitle = ""
+        youtubeJapanese = ""
+        youtubeChinese = ""
+        youtubeStart = ""
+        youtubeEnd = ""
+    }
+
     static let sampleJSON = """
     {
       "version": 1,
@@ -257,4 +470,88 @@ struct ClipImporterView: View {
       ]
     }
     """
+}
+
+// MARK: - YouTube link parsing
+
+/// Extracts a video id (and an optional start offset) from the URL shapes people
+/// actually paste. Kept dependency-free so it can be unit checked on any host.
+enum YouTubeLinkParser {
+    struct Parsed: Equatable {
+        let videoID: String
+        let startSeconds: Double?
+    }
+
+    static func parse(_ raw: String) -> Parsed? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if isVideoID(trimmed) {
+            return Parsed(videoID: trimmed, startSeconds: nil)
+        }
+
+        let normalized = trimmed.lowercased().hasPrefix("http") ? trimmed : "https://" + trimmed
+        guard let components = URLComponents(string: normalized) else { return nil }
+        let host = (components.host ?? "").lowercased()
+        guard host.contains("youtube") || host.hasSuffix("youtu.be") || host == "youtu.be" else { return nil }
+
+        var identifier: String?
+        if host == "youtu.be" || host.hasSuffix(".youtu.be") {
+            identifier = components.path.split(separator: "/").first.map(String.init)
+        } else if let value = components.queryItems?.first(where: { $0.name == "v" })?.value {
+            identifier = value
+        } else {
+            let parts = components.path.split(separator: "/").map(String.init)
+            let markers = ["embed", "shorts", "v", "live", "e"]
+            if let index = parts.firstIndex(where: { markers.contains($0) }), index + 1 < parts.count {
+                identifier = parts[index + 1]
+            }
+        }
+
+        guard let videoID = identifier, isVideoID(videoID) else { return nil }
+        return Parsed(videoID: videoID, startSeconds: startOffset(in: components))
+    }
+
+    static func isVideoID(_ candidate: String) -> Bool {
+        guard candidate.count == 11 else { return false }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        return candidate.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
+
+    private static func startOffset(in components: URLComponents) -> Double? {
+        if let value = components.queryItems?.first(where: { $0.name == "t" || $0.name == "start" })?.value,
+           let seconds = seconds(from: value) {
+            return seconds
+        }
+        if let fragment = components.fragment, fragment.hasPrefix("t=") {
+            return seconds(from: String(fragment.dropFirst(2)))
+        }
+        return nil
+    }
+
+    /// Accepts "90", "90s", "1m30s", "1h2m3s" — the formats YouTube links use.
+    static func seconds(from value: String) -> Double? {
+        let trimmed = value.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.rangeOfCharacter(from: CharacterSet(charactersIn: "hms")) == nil {
+            return Double(trimmed)
+        }
+        var total: Double = 0
+        var digits = ""
+        for character in trimmed {
+            if character.isNumber {
+                digits.append(character)
+                continue
+            }
+            guard let number = Double(digits) else { return nil }
+            switch character {
+            case "h": total += number * 3600
+            case "m": total += number * 60
+            case "s": total += number
+            default: return nil
+            }
+            digits = ""
+        }
+        return total > 0 ? total : nil
+    }
 }

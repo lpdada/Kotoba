@@ -77,16 +77,16 @@ struct VocabularyView: View {
                     Text("\(app.knownWordCount)")
                         .font(.system(size: 38, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.ink)
-                    Text("已经熟悉的词")
+                    Text("已经熟悉的词 ・ 共 \(app.words.count) 个")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(app.words.count)")
+                    Text("\(app.learningWordCount)")
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundStyle(Theme.accent)
-                    Text("总收藏")
+                    Text("学习中")
                         .font(.system(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }

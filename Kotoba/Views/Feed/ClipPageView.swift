@@ -35,6 +35,12 @@ struct ClipPageView: View {
             .padding(.bottom, 16)
         }
         .onAppear(perform: prepare)
+        .onChange(of: app.profile.playbackRate) { _, rate in
+            player.setRate(rate)
+        }
+        .onChange(of: app.profile.loopClip) { _, loops in
+            player.setLooping(loops)
+        }
         .onChange(of: isActive) { _, active in
             if active {
                 appearedAt = Date()
@@ -242,7 +248,13 @@ struct ClipPageView: View {
         if let mediaURL {
             let start = 0.0
             let end = clip.durationSeconds > 0 ? clip.durationSeconds : 12
-            player.load(url: mediaURL, start: start, end: end, rate: app.profile.playbackRate)
+            player.load(
+                url: mediaURL,
+                start: start,
+                end: end,
+                rate: app.profile.playbackRate,
+                loops: app.profile.loopClip
+            )
         }
     }
 

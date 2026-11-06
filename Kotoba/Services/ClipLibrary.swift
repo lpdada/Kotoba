@@ -98,14 +98,6 @@ final class ClipLibrary: ObservableObject {
         }
     }
 
-    // MARK: Search
-
-    func search(_ query: String) -> [Clip] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-        return clips.filter { $0.searchableText.localizedStandardContains(trimmed) }
-    }
-
     var topicCatalog: [String] {
         Array(Set(clips.flatMap(\.topics))).sorted()
     }

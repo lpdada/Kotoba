@@ -20,7 +20,7 @@
 | 语境解释（离线） | `LocalContextExplainer`：重新分词定位该词位置 → 看后面接哪个助词判断成分（主语/宾语/主题…）→ 报告变形与敬体/常体 → 生成中文说明 |
 | 语境解释（在线） | `RemoteLLMExplainer`：任意 OpenAI 兼容 `/chat/completions`，要求返回 JSON（headline/grammar/nuance），失败自动回落到离线解释；密钥存钥匙串 |
 | 生词本 | 保存/搜索/筛选（新词、学习中、熟悉、掌握）、按熟悉度着色、笔记、忽略、手动标记已掌握、分组 |
-| 间隔复习 | `SpacedRepetition`：学习阶梯 1 分 → 10 分 → 毕业 1 天；复习阶段按 ease 放大间隔，`hard` 1.2x / `good` ease / `easy` ease×1.35；`again` 回到学习阶段并降 ease；间隔 ±5% 浮动、上限 730 天 |
+| 间隔复习 | `SpacedRepetition`：学习阶梯 1 分 → 10 分 → 毕业 1 天；复习阶段按 ease 放大间隔，`hard` 1.2x / `good` ease / `easy` ease×1.35；`again` 回到学习阶段并降 ease；间隔 ±5% 浮动、上限 730 天。队列同时受「全局每日上限」与「分组每日新词/复习上限」约束 |
 | 闪卡会话 | 队列 = 到期复习 + 每日新词 + 整句卡片；翻面、四档评分（带下次间隔预览）、撤销、进度、结算（记忆率/用时） |
 | 整句卡片 | 从片段保存整句 + 翻译，作为独立卡种参与复习 |
 | 难度分级 | 片段等级由词表估算（平均 JLPT 排名 + 生词占比），与手写等级并存；推荐器按等级距离、兴趣、是否看过、生词比例打分 |
@@ -45,7 +45,12 @@ kiku-ios/
 │  └─ Info.plist
 ├─ Tools/
 │  ├─ generate_project.py     # 扫描源码目录重新生成 pbxproj + scheme
-│  └─ lint_swift.py           # 括号平衡 / 重复类型 / AppModel 引用一致性检查
+│  ├─ lint_swift.py           # 括号平衡 / 重复类型 / AppModel 引用一致性检查
+│  ├─ check_initializers.py   # 自建结构体构造标签与顺序检查
+│  ├─ verify_core.swift       # 四大引擎的命令行输出（词典/分词/变形/调度）
+│  ├─ verify_logic.sh         # Linux 上编译并真跑决策层断言
+│  ├─ HarnessLogic.swift      # 那些断言的正文
+│  └─ stubs/PlatformShim.swift# SwiftUI/AVFoundation/Security 的最小替身
 ├─ .github/workflows/ios.yml  # macOS 模拟器无签名构建 + 产物校验
 └─ ATTRIBUTION.md             # 词典数据来源与许可
 ```
@@ -145,7 +150,7 @@ DP 结束后把相邻的未知 token 合并成一个可点击单元；单个汉�
 
 **难度估算**：片段等级 = 字幕中命中词的 JLPT 排名均值（四舍五入到最近等级），未知词计入「生词占比」。推荐排序综合等级距离、兴趣标签、是否看过、生词占比，并加 ±0.35 随机抖动。
 
-`Tools/verify_core.swift` 是一个可在 Linux 上直接跑的验证程序，把上面四个引擎编译成命令行工具打印真实结果：
+`Tools/verify_logic.sh` 把「模型 + 服务 + AppModel」用一个最小平台桩编译并在 Linux 上**真跑**断言（分组限额、学习阶梯、评分、撤销、日统计都覆盖）。`Tools/verify_core.swift` 则单独打印四个引擎的原始输出：
 
 ```bash
 swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
@@ -190,8 +195,25 @@ entries: 11794
 遗忘：间隔归零、ease 2.5 → 2.28、1 分钟后重学
 ```
 
-4. **结构自检**：`Tools/lint_swift.py` 检查括号平衡、重复类型声明、`app.xxx` 与 AppModel 成员的一致性；`Tools/check_initializers.py` 检查所有 `Struct(...)` 调用的标签名与顺序。
-5. **构建自检**：`.github/workflows/ios.yml` 在 macOS 上构建后校验 `Kotoba.app` 里确实打进了 `Dictionary.json`、`SampleClips.json` 与可执行文件。
+4. **行为断言**：`./Tools/verify_logic.sh` 在 Linux 上用平台桩编译并运行决策层，输出：
+
+```
+== deck budgets ==
+  PASS  new cards respect per-deck budget  — 3 cards
+  PASS  deck A contributed its 2  — 2 from d1
+== due reviews ==
+  PASS  due reviews capped by deck limit  — 3 cards
+== scheduler through the model ==
+  PASS  first good ≈ 1 minute  — 1.0 min
+  PASS  second good ≈ 10 minutes  — 10.0 min
+  PASS  graduation to 1 day / again resets interval / again lowers ease
+== session + undo ==
+  PASS  rating moved the card forward / undo restored the card / undo rewound the index
+ALL CHECKS PASSED
+```
+
+5. **结构自检**：`Tools/lint_swift.py` 检查括号平衡、重复类型声明、`app.xxx` 与 AppModel 成员的一致性；`Tools/check_initializers.py` 检查所有 `Struct(...)` 调用的标签名与顺序。
+6. **构建自检**：`.github/workflows/ios.yml` 在 macOS 上构建后校验 `Kotoba.app` 里确实打进了 `Dictionary.json`、`SampleClips.json` 与可执行文件。
 
 仍然需要 Xcode 才能确认的部分：SwiftUI 视图层的类型检查与真机布局。视图层全部使用 iOS 17 的稳定 API（`scrollTargetBehavior`、`containerRelativeFrame`、`.onChange(of:_:)` 双参闭包、`MainActor.assumeIsolated`），没有使用 iOS 18 才有的接口。
 

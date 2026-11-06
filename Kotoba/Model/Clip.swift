@@ -156,10 +156,6 @@ struct Clip: Identifiable, Codable, Hashable {
 
     var displaySeries: String { series.isEmpty ? "素材库" : series }
 
-    var searchableText: String {
-        [title, series, episode, transcript, translation, topics.joined(separator: " ")]
-            .joined(separator: " ")
-    }
 }
 
 // MARK: - Tokens

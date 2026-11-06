@@ -19,6 +19,8 @@ final class ClipPlayer: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var statusObservation: NSKeyValueObservation?
     private var loadedURL: URL?
+    /// When false the clip stops on the segment boundary instead of looping.
+    private(set) var isLooping = true
 
     init() {
         player.actionAtItemEnd = .pause
@@ -28,7 +30,7 @@ final class ClipPlayer: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.restart()
+            self?.handleSegmentEnd()
         }
     }
 
@@ -40,7 +42,8 @@ final class ClipPlayer: ObservableObject {
 
     // MARK: Loading
 
-    func load(url: URL, start: Double, end: Double, rate: Double) {
+    func load(url: URL, start: Double, end: Double, rate: Double, loops: Bool = true) {
+        isLooping = loops
         guard loadedURL != url || player.currentItem == nil else {
             setSegment(start: start, end: end)
             setRate(rate)
@@ -89,7 +92,7 @@ final class ClipPlayer: ObservableObject {
         }
         let target = CMTime(seconds: segmentEnd, preferredTimescale: 600)
         boundaryObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: target)], queue: .main) { [weak self] in
-            self?.restart()
+            self?.handleSegmentEnd()
         }
     }
 
@@ -120,16 +123,28 @@ final class ClipPlayer: ObservableObject {
         }
     }
 
+    func setLooping(_ value: Bool) {
+        isLooping = value
+    }
+
+    /// Called when the playhead reaches the end of the requested segment.
+    private func handleSegmentEnd() {
+        guard isLooping else {
+            pause()
+            return
+        }
+        restart()
+    }
+
     func seekToSegmentStart() {
         let time = CMTime(seconds: segmentStart, preferredTimescale: 600)
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
     func setRate(_ rate: Double) {
+        player.defaultRate = Float(rate)
         if isPlaying {
             player.rate = Float(rate)
-        } else {
-            player.defaultRate = Float(rate)
         }
     }
 

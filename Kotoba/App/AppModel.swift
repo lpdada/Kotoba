@@ -192,12 +192,6 @@ final class AppModel: ObservableObject {
         toast = "已标记为掌握：\(word.word)"
     }
 
-    func setWordDecks(_ word: SavedWord, deckIDs: [String]) {
-        var copy = word
-        copy.deckIDs = deckIDs.isEmpty ? [Deck.defaultDeckID] : deckIDs
-        updateWord(copy)
-    }
-
     // MARK: Sentence cards
 
     @discardableResult
@@ -272,24 +266,62 @@ final class AppModel: ObservableObject {
     func makeReviewQueue(includeNew: Bool = true, now: Date = Date()) -> [ReviewSessionModel.Item] {
         var items: [ReviewSessionModel.Item] = []
 
+        // Reviews respect both the per-deck limit and the global daily cap.
+        var reviewAllowance = deckAllowances(newCards: false)
+        var remainingReviews = profile.dailyReviewLimit
         let dueWords = words
             .filter { !$0.isIgnored && !$0.scheduling.isNew && $0.scheduling.isDue(at: now) }
             .sorted { $0.scheduling.dueAt < $1.scheduling.dueAt }
-        items += dueWords.prefix(profile.dailyReviewLimit).map { .init(kind: .word($0.id)) }
+        for word in dueWords {
+            guard remainingReviews > 0 else { break }
+            guard consumeAllowance(&reviewAllowance, for: word) else { continue }
+            items.append(ReviewSessionModel.Item(kind: .word(word.id)))
+            remainingReviews -= 1
+        }
 
         if includeNew {
+            var newAllowance = deckAllowances(newCards: true)
+            var remainingNew = profile.dailyNewWords
             let newWords = words
                 .filter { !$0.isIgnored && $0.scheduling.isNew }
                 .sorted { $0.createdAt > $1.createdAt }
-            items += newWords.prefix(profile.dailyNewWords).map { .init(kind: .word($0.id)) }
+            for word in newWords {
+                guard remainingNew > 0 else { break }
+                guard consumeAllowance(&newAllowance, for: word) else { continue }
+                items.append(ReviewSessionModel.Item(kind: .word(word.id)))
+                remainingNew -= 1
+            }
         }
 
         let dueSentences = sentenceCards
             .filter { $0.scheduling.isDue(at: now) }
             .prefix(12)
-        items += dueSentences.map { .init(kind: .sentence($0.id)) }
+        items += dueSentences.map { ReviewSessionModel.Item(kind: .sentence($0.id)) }
 
         return items.shuffled()
+    }
+
+    /// Remaining card budget per deck for this queue build.
+    private func deckAllowances(newCards: Bool) -> [String: Int] {
+        var result: [String: Int] = [:]
+        for deck in decks {
+            result[deck.id] = newCards ? deck.newPerDay : deck.reviewLimit
+        }
+        return result
+    }
+
+    /// A word counts against the first deck that still admits cards.
+    private func consumeAllowance(_ allowance: inout [String: Int], for word: SavedWord) -> Bool {
+        let deckIDs = word.deckIDs.isEmpty ? [Deck.defaultDeckID] : word.deckIDs
+        for identifier in deckIDs {
+            // Words in a deck that no longer exists are never blocked.
+            guard let remaining = allowance[identifier] else { return true }
+            if remaining > 0 {
+                allowance[identifier] = remaining - 1
+                return true
+            }
+        }
+        return false
     }
 
     func word(id: String) -> SavedWord? { words.first { $0.id == id } }
@@ -644,6 +676,19 @@ final class AppModel: ObservableObject {
         refreshMetrics()
         scheduleSave()
         return imported.count
+    }
+
+    @discardableResult
+    func addCustomClip(_ clip: Clip) -> Clip {
+        // Same video + same range twice would duplicate the SwiftUI identity.
+        if let existing = customClips.first(where: { $0.id == clip.id }) {
+            return existing
+        }
+        customClips.append(clip)
+        library.setCustom(customClips)
+        refreshMetrics()
+        scheduleSave()
+        return clip
     }
 
     func removeCustomClip(_ clip: Clip) {

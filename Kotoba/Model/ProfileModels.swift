@@ -9,7 +9,6 @@ struct UserProfile: Codable, Equatable {
     var dailyNewWords: Int = 8
     var dailyReviewLimit: Int = 60
     var topics: [String] = []
-    var dialectNote: String = "标准语"
 
     // Display
     var furiganaEnabled: Bool = true
