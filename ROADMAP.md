@@ -85,3 +85,74 @@
 4. **Reduce Motion**：生成画面（TimelineView 停止推进）、复习卡翻面动画、进度环动画三处尊重系统设置。
 5. **大字号布局**：字幕区最大高度、汉字网格列数（改自适应）、生词释义行数随 `dynamicTypeSize` 变化。
 6. **未做/未验证**：VoiceOver 实际朗读、200% 字号下的真机布局、Voice Control/Switch Control 均未在设备上验证（本机无 Xcode），只做代码层检查与结构性断言。
+
+## 9. Miraa 调研与移植（第五轮）
+
+### 9.1 公开资料（网站 + Google Play）
+
+- 定位：把「你喜欢的视频/播客」变成学习材料——AI 生成双字幕、实时翻译、AI 讲解、Echo 四步法（Listen / Understand / Imitate / Compare）。
+- 免费版有限额，主力是订阅（RevenueCat）；素材以 YouTube / 播客为主。
+
+### 9.2 APK 静态分析（仅在本机，未安装、未登录、未调用其服务）
+
+- 包体 83 MB，**Flutter**（`libapp.so` 19.3 MB Dart AOT + `flutter_assets`，`classes.dex` 只是壳）。依赖可从字符串确认：`youtube_player_flutter`（WebView 内嵌官方播放器，`playsinline` / `enablejsapi` / `modestbranding`）、`audio_service` / `audioplayers`、`dio`、`hive`、`sqflite`、`flutter_secure_storage`、`firebase_remote_config`、RevenueCat、`flutter_charset_detector_web`。
+- YouTube 接入：解析 `ytInitialPlayerResponse` → `playerCaptionsTracklistRenderer.captionTracks[].baseUrl`（另有 `visitorData`、`timedText` 字样），即**从 YouTube 取字幕轨**；播放用官方内嵌播放器。
+- 服务端：`api/myoland`（账号、配额）、`aiflow2`（`mjd_transcribe_task` / `transcribeTaskID` / `transcribeStatus` / `transcribedFileURL`，转写任务）、`analyzer(2)`（`/analyze`、`demo/proto`，AI 讲解）、`pay`（订阅）、CloudFront（媒体 CDN）。字符串里还有 `domain/podcast_index/rss_podcast_index_transcript`，说明播客 RSS 也是一等输入。
+- 数据模型（从符号推断）：媒体来源（YouTube / 播客 RSS / 本地）→ `yt_parsed_response`（videoId、captionTracks）→ 转写任务 → 字幕段落 → 翻译 / AI 分析 → Echo 学习 → 单词状态（known / learning / unknown）。
+
+### 9.3 结论：能搬什么、不能搬什么
+
+| Miraa 的做法 | Kotoba 的取舍 | 原因 |
+| --- | --- | --- |
+| 服务端转写（无字幕的音视频也生成字幕） | **不做** | Kotoba 没有服务器，也不调用付费转写 API |
+| 服务端 AI 双字幕翻译 | **不做** | 同上；离线/免费约束下无法诚实实现 |
+| 从 YouTube 取字幕轨 | **做**：客户端解析 watch 页 → `baseUrl` → `timedtext`（json3/XML），仅当轨道公开时 | 纯客户端、无服务端、可失败可回退 |
+| Echo 四步 | **做**：`EchoSession` + `EchoPracticeView`，复用逐句播放与录音 | 只是流程编排，不依赖后端 |
+| KNOWN / LEARNING 词状态 | **做**：显式三态（未收录 / 学习中 / 已认识），与既有熟悉度、复习调度对齐 | 状态是本地数据 |
+| 分级视频库 | **做**（限定）：只整理**你自己导入**的片段，按估算等级/来源筛选 | 不能打包第三方视频目录（版权），也没有服务端目录 |
+| 品牌、文案、视觉、字幕内容 | **不碰** | 只学方法 |
+
+### 9.4 本轮实现
+
+1. `YouTubeCaptions.swift`：watch 页解析 + json3/XML 解析 + 轨道优选（日语人工轨 > 日语自动轨 > 其他），网络层可注入（测试离线跑）；失败时给出明确原因并保留手动粘贴路径。
+2. `EchoSession.swift` + `EchoPracticeView.swift`：四步状态机与界面（听→懂→模仿→对比），对比阶段复用 `ShadowingRecord` 自评落盘。
+3. `WordState` + `AppModel.setWordState`：未收录/学习中/已认识三态，点词卡片上可一键切换；复习调度保持原样。
+4. `ClipLibraryView` + `AppModel.libraryClips`：按估算等级、来源、文本筛选自己的素材库。
+5. `ClipImporterView`：YouTube 卡片新增「抓取日语字幕」，抓到的字幕带逐行时间轴写入片段（`line_timings`），精听与回声可直接逐句跳转。
+
+### 9.5 本轮承认做不到的
+
+- **自动中文翻译**：没有服务端、没有可用的离线 ja→zh 模型，抓到的只有日语原文；中文仍由用户手填或点词看解释。
+- **无字幕视频的转写**：需要 ASR 服务，Kotoba 不做；只在视频自带（或 YouTube 已有）字幕时可用。
+- **YouTube 字幕可能被拒**：无登录请求自动字幕时常被 403/429 挡住，界面会明确提示并引导手动粘贴，不假装成功。
+- **打包的分级视频目录**：涉及第三方版权，Kotoba 只整理用户自己的素材。
+
+## 10. 自建转写服务（第六轮：约束变更）
+
+用户确认拥有自己的服务器（新加坡机器上跑着 sherpa-onnx），因此 §9.3/§9.5 里「服务端转写不做」的前提**改变了**。本轮只做客户端与契约，不在 peng 上实现服务端。
+
+### 10.1 变更后的取舍
+
+| 能力 | 之前 | 现在 |
+| --- | --- | --- |
+| 无字幕视频的转写 | 不做（无服务端） | **可选**：由用户自建服务提供，默认关闭 |
+| 中文翻译 | 不做（无离线模型） | 由该服务顺带返回；服务端用用户已有的模型配置 |
+| 公开字幕轨 | 做 | 保留，作为首选/回退之一 |
+| 离线可用性 | 必须 | 必须：不配置服务时全部功能照旧 |
+
+### 10.2 实现（客户端）
+
+- `TranscriptionClient.swift`：`TranscriptionSettings`（默认关闭、地址为空、超时 90 秒可调、可选翻译）+ 请求构造 + 容错解析 + 重试策略（5xx/429/网络：共 3 次尝试，退避 1s/3s；4xx 不重试）+ 错误分类（未配置 / 地址无效 / HTTP / 解析 / 空结果 / 网络 / 取消）。传输与 sleep 均可注入，便于离线断言。
+- `AppModel`：`transcription` 状态、`transcribeYouTube`、`importTranscribedClip`、`pingTranscriptionServer`（`GET /health`）；状态以**可选字段** `transcription` 存入快照，旧备份仍可解码。
+- UI：`设置 › 云端转写（可选）`；`内容管理 › 导入 YouTube 片段` 在已配置时多出「服务器转写」按钮，抓到的时间轴写入 `line_timings`，精听/回声可逐句跳转。
+
+### 10.3 接口契约
+
+见 README §5：`POST {base}/transcribe`（`video_id` / `format` / `translate_to`）→ `{language, provider, lines:[{start,end,japanese,chinese}]}`；失败语义、重试、超时、`/health`、以及**仅契约未实现**的音频上传变体都在那里。
+
+### 10.4 明确不做 / 不在本仓库
+
+- 服务端实现（下载音频、调用 sherpa-onnx、翻译编排、限流、缓存）——由 Hermes 在用户服务器上部署，不在 peng 上做。
+- 客户端音频上传（`/transcribe-audio`）：只有契约。
+- 任何真实服务器地址、令牌、密钥：仓库里一律没有；鉴权由用户在自己的服务器/反代上做。
+- 不复制 Miraa 的服务端转写/AI 翻译实现，也不复制其品牌、文案与视觉。

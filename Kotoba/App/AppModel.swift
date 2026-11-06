@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import SwiftUI
 
 /// Central state and use-cases for the app.
@@ -23,6 +26,10 @@ final class AppModel: ObservableObject {
     @Published var explanations: [String: WordExplanation] = [:]
     @Published var shadowingRecords: [ShadowingRecord] = []
     @Published var kanjiCards: [KanjiCard] = []
+    /// Set when a caption fetch is in flight, so the importer can show progress.
+    @Published var captionFetchStatus: String?
+    /// Self-hosted transcription endpoint; disabled and empty by default.
+    @Published var transcription = TranscriptionSettings()
     @Published var metricsByClip: [String: ClipMetrics] = [:]
     @Published var toast: String?
     @Published var aiKeyStored = false
@@ -77,6 +84,7 @@ final class AppModel: ObservableObject {
         savedClipIDs = Set(snapshot.savedClipIDs)
         explanations = snapshot.explanations
         shadowingRecords = snapshot.shadowingRecords ?? []
+        transcription = snapshot.transcription ?? .disabled
         kanjiCards = snapshot.kanjiCards ?? []
     }
 
@@ -92,6 +100,7 @@ final class AppModel: ObservableObject {
         snapshot.savedClipIDs = Array(savedClipIDs)
         snapshot.explanations = explanations
         snapshot.shadowingRecords = shadowingRecords
+        snapshot.transcription = transcription
         snapshot.kanjiCards = kanjiCards
         snapshot.streakDayKeys = Array(activity.keys).sorted()
         return snapshot
@@ -914,6 +923,210 @@ final class AppModel: ObservableObject {
                 saved: cards.count,
                 learned: cards.filter { $0.familiarity >= 4 }.count
             )
+        }
+    }
+
+    // MARK: Word states (known / learning / unseen)
+
+    func wordState(entryID: String) -> WordState {
+        guard let word = savedWord(id: entryID) else { return .unseen }
+        if word.isIgnored { return .unseen }
+        return word.familiarity >= 4 ? .known : .learning
+    }
+
+    /// Explicit KNOWN / LEARNING / UNSEEN switch used by the lookup sheet.
+    @discardableResult
+    func setWordState(
+        _ state: WordState,
+        entry: DictEntry?,
+        surface: String,
+        sentence: String? = nil,
+        clip: Clip? = nil
+    ) -> SavedWord? {
+        let identifier = entry?.id ?? ("surface:" + surface)
+        switch state {
+        case .unseen:
+            if let existing = savedWord(id: identifier) {
+                removeWord(existing)
+            }
+            toast = "已移出生词本：\(entry?.word ?? surface)"
+            return nil
+        case .known:
+            var word = saveWord(entry: entry, surface: surface, sentence: sentence, clip: clip)
+            word.familiarity = 5
+            word.isIgnored = false
+            word.scheduling.intervalDays = max(word.scheduling.intervalDays, 21)
+            word.scheduling.learningStep = 0
+            word.scheduling.preLapseInterval = nil
+            word.scheduling.reviewCount = max(word.scheduling.reviewCount, 1)
+            word.scheduling.dueAt = Date().addingTimeInterval(21 * 86_400)
+            updateWord(word)
+            toast = "标记为已认识：\(word.word)"
+            return word
+        case .learning:
+            var word = saveWord(entry: entry, surface: surface, sentence: sentence, clip: clip)
+            word.familiarity = 1
+            word.isIgnored = false
+            word.scheduling = SchedulingState()
+            updateWord(word)
+            toast = "改为学习中：\(word.word)"
+            return word
+        }
+    }
+
+    // MARK: YouTube captions
+
+    /// Builds a clip from fetched caption cues, keeping per-line timings so the
+    /// intensive / Echo views can work sentence by sentence.
+    @discardableResult
+    func importYouTubeClip(
+        videoID: String,
+        title: String,
+        cues: [SubtitleCue],
+        translation: String = "",
+        level: JLPTLevel? = nil,
+        attribution: String = "字幕来自 YouTube 公开轨道"
+    ) -> Clip? {
+        guard let first = cues.first, let last = cues.last else { return nil }
+        let start = first.start
+        let end = max(last.end, start + 1)
+        let clip = Clip(
+            id: "yt-\(videoID)-\(Int(start))-\(Int(end))",
+            title: title.isEmpty ? "YouTube 片段 \(videoID)" : title,
+            series: "YouTube",
+            episode: "",
+            transcript: cues.map(\.text).joined(separator: "\n"),
+            translation: translation,
+            translationEN: "",
+            level: level,
+            topics: ["YouTube"],
+            durationSeconds: end - start,
+            mediaStartSeconds: start,
+            lineTimings: cues.map { ClipLineTiming(start: $0.start, end: max($0.end, $0.start + 0.3)) },
+            media: .youtube(id: videoID, start: start, end: end),
+            attribution: attribution,
+            custom: true
+        )
+        addCustomClip(clip)
+        return clip
+    }
+
+    // MARK: Self-hosted transcription
+
+    func updateTranscription(_ mutate: (inout TranscriptionSettings) -> Void) {
+        var copy = transcription
+        mutate(&copy)
+        transcription = copy
+        scheduleSave()
+    }
+
+    /// Client built from current settings; injectable for tests.
+    func transcriptionClient(
+        send: ((URLRequest) async throws -> (Data, Int))? = nil,
+        sleep: ((Double) async throws -> Void)? = nil
+    ) -> TranscriptionClient {
+        TranscriptionClient(
+            settings: transcription,
+            send: send ?? TranscriptionClient.defaultSend,
+            sleep: sleep ?? { seconds in
+                try await Task.sleep(nanoseconds: UInt64(max(seconds, 0) * 1_000_000_000))
+            }
+        )
+    }
+
+    /// Calls the configured server and returns timestamped lines.
+    func transcribeYouTube(videoID: String, client: TranscriptionClient? = nil) async throws -> TranscriptionResult {
+        guard transcription.isConfigured else { throw TranscriptionError.notConfigured }
+        let active = client ?? transcriptionClient()
+        return try await active.transcribe(videoID: videoID)
+    }
+
+    /// Saves a server transcript as a clip (same shape as caption imports).
+    @discardableResult
+    func importTranscribedClip(
+        videoID: String,
+        title: String,
+        result: TranscriptionResult,
+        level: JLPTLevel? = nil
+    ) -> Clip? {
+        importYouTubeClip(
+            videoID: videoID,
+            title: title,
+            cues: result.lines.map(\.subtitleCue),
+            translation: result.chineseText ?? "",
+            level: level,
+            attribution: "字幕由自建服务器转写（\(result.provider ?? "server")）"
+        )
+    }
+
+    /// Optional `GET /health` probe used by the settings screen.
+    func pingTranscriptionServer() async -> String {
+        guard let url = transcription.healthURL else { return "地址无效" }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return "响应不是 HTTP" }
+            switch http.statusCode {
+            case 200: return "服务器可用"
+            case 404: return "服务器在线，但没有 /health（可忽略）"
+            default: return "服务器返回 \(http.statusCode)"
+            }
+        } catch {
+            return "连接失败：\(error.localizedDescription)"
+        }
+    }
+
+    // MARK: Library browsing
+
+    enum ClipSourceFilter: String, CaseIterable, Identifiable {
+        case all, youtube, local, generated
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: return "全部"
+            case .youtube: return "YouTube"
+            case .local: return "本地"
+            case .generated: return "朗读"
+            }
+        }
+    }
+
+    /// Clips for the library screen, filtered by estimated level, text and source.
+    func libraryClips(
+        level: JLPTLevel? = nil,
+        query: String = "",
+        source: ClipSourceFilter = .all
+    ) -> [Clip] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return library.clips.filter { clip in
+            if let level {
+                let estimate = metricsByClip[clip.id]?.level ?? clip.level
+                guard estimate == level else { return false }
+            }
+            switch source {
+            case .all:
+                break
+            case .youtube:
+                if case .youtube = clip.media {} else { return false }
+            case .local:
+                if case .localFile = clip.media {} else { return false }
+            case .generated:
+                if case .generated = clip.media {} else { return false }
+            }
+            guard !trimmed.isEmpty else { return true }
+            return clip.title.localizedStandardContains(trimmed)
+                || clip.series.localizedStandardContains(trimmed)
+                || clip.transcript.localizedStandardContains(trimmed)
+        }
+        .sorted { lhs, rhs in
+            let left = metricsByClip[lhs.id]?.level.rank ?? 9
+            let right = metricsByClip[rhs.id]?.level.rank ?? 9
+            if left != right { return left < right }
+            return lhs.title < rhs.title
         }
     }
 

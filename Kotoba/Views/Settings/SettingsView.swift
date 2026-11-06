@@ -16,6 +16,9 @@ struct SettingsView: View {
     @State private var restoreError: String?
     @State private var showRestoreError = false
     @State private var ankiURL: URL?
+    @State private var transcriptionURLDraft = ""
+    @State private var transcriptionTestResult: String?
+    @State private var isTestingTranscription = false
 
     var body: some View {
         Form {
@@ -23,6 +26,7 @@ struct SettingsView: View {
             subtitleSection
             playbackSection
             aiSection
+            transcriptionSection
             dataSection
             aboutSection
         }
@@ -232,6 +236,75 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Self-hosted transcription
+
+    private var transcriptionSection: some View {
+        Section {
+            Toggle("启用服务器转写", isOn: Binding(
+                get: { app.transcription.isEnabled },
+                set: { value in app.updateTranscription { $0.isEnabled = value } }
+            ))
+
+            TextField("服务器地址（例如 https://your-host）", text: $transcriptionURLDraft)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .accessibilityLabel(Text("转写服务器地址"))
+                .onSubmit { commitTranscriptionURL() }
+
+            HStack {
+                Button("保存地址") { commitTranscriptionURL() }
+                    .font(Theme.font(size: 13, weight: .semibold))
+                    .accessibilityHint(Text("保存后才会使用这个地址"))
+                Spacer()
+                Text(app.transcription.statusLabel)
+                    .font(Theme.font(size: 11))
+                    .foregroundStyle(app.transcription.isConfigured ? Theme.jade : Theme.secondaryText)
+            }
+
+            Toggle("同时请求中文翻译", isOn: Binding(
+                get: { app.transcription.translateToChinese },
+                set: { value in app.updateTranscription { $0.translateToChinese = value } }
+            ))
+
+            Stepper("超时 \(app.transcription.timeoutSeconds) 秒", value: Binding(
+                get: { app.transcription.timeoutSeconds },
+                set: { value in app.updateTranscription { $0.timeoutSeconds = value } }
+            ), in: 15...300, step: 15)
+
+            HStack {
+                Button(isTestingTranscription ? "测试中…" : "测试连接") {
+                    Task { await testTranscription() }
+                }
+                .font(Theme.font(size: 13))
+                .disabled(isTestingTranscription || app.transcription.healthURL == nil)
+                Spacer()
+                if let transcriptionTestResult {
+                    Text(transcriptionTestResult)
+                        .font(Theme.font(size: 11))
+                        .foregroundStyle(Theme.secondaryText)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        } header: {
+            Text("云端转写（可选）")
+        } footer: {
+            Text("默认关闭。开启并填好地址后，「导入 YouTube 片段」会多出一个「服务器转写」按钮：把视频 ID 发到你的服务器，取回带时间轴的日文字幕（以及可选的中文翻译）。Kotoba 不内置地址、密钥或令牌；鉴权请在你的服务器或反向代理上做。没有配置时一切功能仍按离线流程工作。")
+        }
+    }
+
+    private func commitTranscriptionURL() {
+        let value = transcriptionURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        app.updateTranscription { $0.serverURL = value }
+        transcriptionTestResult = nil
+    }
+
+    private func testTranscription() async {
+        isTestingTranscription = true
+        transcriptionTestResult = await app.pingTranscriptionServer()
+        isTestingTranscription = false
+    }
+
     // MARK: Data
 
     private var dataSection: some View {
@@ -320,6 +393,7 @@ struct SettingsView: View {
         nameDraft = app.profile.displayName
         baseURLDraft = app.profile.aiBaseURL
         modelDraft = app.profile.aiModel
+        transcriptionURLDraft = app.transcription.serverURL
     }
 
     private func testConnection() async {

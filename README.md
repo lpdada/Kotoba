@@ -34,6 +34,11 @@
 | 备份与互通 | `BackupService`：一键导出/恢复完整 JSON 备份（ISO8601 与旧格式双兼容，空备份与更高版本会被拒绝），以及导出 Anki 兼容 TSV（5 列：词形、读音、释义、原句、标签） |
 | 复习负载预测 | `reviewForecast(days:)` 输出未来 7 天到期分布（逾期并入今天），复习页用柱状条呈现，配合分组上限调节压力 |
 | 无障碍 | 全量 Dynamic Type（字号→系统文字样式映射，>26 pt 用 `@ScaledMetric`；视图层零硬编码字号）、VoiceOver 标签/hint/值与 `.isHeader`/`.isSelected` 语义、非颜色第二通道（熟悉度下划线、文字化的等级与评分）、尊重「减弱动态效果」 |
+| 云端转写（可选） | 默认关闭、地址留空即禁用；填好自己的转写服务后，导入 YouTube 片段时可请求带时间轴的日文字幕（可选中文翻译）。Kotoba 不内置地址/密钥，服务不可用时自动回退到「公开字幕 → 手动粘贴 / 字幕文件」 |
+| 抓取 YouTube 字幕 | 粘贴链接后可一键读取 YouTube 公开字幕轨道（日语人工轨优先，其次自动轨），自动填好日文字幕、起止时间与逐行时间轴；失败时给出原因并保留手动粘贴 |
+| 回声练习 | 每句按「听 → 懂 → 模仿 → 对比」四步练习，对比阶段复用跟读录音与自评（跟上了 / 再来一次） |
+| 词状态 | 未收录 / 学习中 / 已认识三态，点词卡片上直接切换，与间隔复习调度对齐 |
+| 素材库 | 只整理你自己导入的片段：按估算 JLPT 等级、来源（YouTube / 本地 / 朗读）与文本筛选 |
 | 逐句精听 | 片段页「精听」入口：按 `line_timings` 或字符数切句，逐句播放、上/下一句、点句跳转、A-B 循环、句末暂停、重复 1–3 次、倍速 0.5–1.5x；退出后恢复原区间与循环 |
 | 汉字层 | 内置 2,387 个常用漢字/JLPT 汉字（KANJIDIC2）：读音、笔画、部首、学年、拼音、英文释义、N5+N4 中文释义；详情页列出例词（从词典自动筛选）。可在「生词 › 汉字」按等级/部首浏览与搜索，也可从点词卡片或词条页的汉字入口直接打开 |
 | 汉字复习 | 汉字卡与生词卡共用同一套 `SpacedRepetition` 与四档评分；复习队列里与生词、整句混合出现，卡片正面是汉字、背面是读音+意思+例词 |
@@ -139,6 +144,70 @@ python3 Tools/generate_project.py
 
 「设置 › 数据」：`导出备份 (JSON)` 保存全部学习记录；`从备份恢复 (JSON)` 会在确认后用备份整体替换本地状态（媒体文件不动）；`导出 Anki 卡片 (TSV)` 生成 5 列制表符文件，可直接在 Anki 里以「制表符分隔」导入。
 
+## 5. 自建转写服务（可选，默认关闭）
+
+Kotoba 没有自己的服务器。如果你有一台自己的机器（例如新加坡那台跑着 sherpa-onnx 的服务器），可以让它承担**转写**，Kotoba 只负责调用与回退。**本轮只实现客户端与契约，不在 peng 上实现服务端。**
+
+### 5.1 在应用里怎么开
+
+`设置 › 云端转写（可选）`：
+
+| 项 | 默认 | 说明 |
+| --- | --- | --- |
+| 启用服务器转写 | 关 | 关着就完全不联网，所有旧流程照常 |
+| 服务器地址 | 空 | 例：`https://asr.example.com`；也接受写成完整的 `…/transcribe` |
+| 超时 | 90 秒（15–300 可调） | 每次请求的 `timeoutInterval` |
+| 同时请求中文翻译 | 开 | 关掉则只取日文字幕 |
+
+**Kotoba 代码里没有任何真实服务器地址、令牌或密钥。** 地址只存在你本机的状态文件里；鉴权请放在你的服务器或反向代理（Cloudflare Access / IP 白名单 / Basic Auth）上。没有填地址时，界面显示「已关闭 / 地址无效」，功能按钮不出现。
+
+### 5.2 服务端必须提供的接口
+
+**`POST {base}/transcribe`** · `Content-Type: application/json`
+
+```json
+{ "video_id": "dQw4w9WgXcQ", "format": "lines-v1", "translate_to": "zh" }
+```
+
+`translate_to` 只在开启翻译时出现。没有 `video_id` 以外的必需字段。
+
+**成功 `200`**（`lines` 是必需字段；下列别名 Kotoba 都接受，便于对接不同实现）：
+
+```json
+{
+  "language": "ja",
+  "provider": "sherpa-onnx",
+  "lines": [
+    { "start": 12.40, "end": 15.10, "japanese": "すみません、これ、ください。", "chinese": "不好意思，请给我这个。" }
+  ]
+}
+```
+
+- `start`/`end`：秒（浮点）；`end` 可以缺省，Kotoba 会补 `start + 2`，并保证 `end ≥ start + 0.3`。
+- 文本字段接受 `japanese` / `ja` / `text`；译文接受 `chinese` / `zh` / `translation`，缺省即无中文。
+- 数组名接受 `lines` 或 `segments`；空行会被丢弃；结果按 `start` 排序。
+- 只有当**每一行**都有译文时，Kotoba 才把中文写进片段的翻译栏，避免半中半日的错位。
+
+**失败**：`4xx` 返回 `{"error": "…"}`，Kotoba **不重试**，直接把信息显示给用户；`429` / `5xx` / 网络错误会**重试 2 次**（共 3 次尝试，退避 1 秒、3 秒）；单次请求超过设定超时即视为失败。
+
+**可选** `GET {base}/health` → `200`，`设置` 里的「测试连接」用它；返回 404 表示服务在线但没有该端点，可忽略。
+
+**音频上传变体（契约保留，客户端未实现）**：`POST {base}/transcribe-audio`，`multipart/form-data`，字段名 `audio`，返回结构同上。Kotoba 本轮只实现「按视频 ID 转写」，上传本地音频尚未接线。
+
+### 5.3 回退顺序（没有服务时完全可用）
+
+1. 已配置且启用 → `POST /transcribe`；
+2. 否则（或服务失败）→ 尝试 YouTube 公开字幕轨（`timedtext`）；
+3. 都失败 → 留在表单里手动粘贴日文，或用「导入字幕（SRT / VTT）」。
+
+每一步失败都会在卡片里写明原因，不假装成功。
+
+### 5.4 给服务端的实现建议（不在本仓库）
+
+- 复用你已有的 **sherpa-onnx**：`video_id` → 用 yt-dlp 只下音频（`-f bestaudio`，限时长/体积）→ 转写 → 输出上表的 `lines`；中文翻译走**你已有的模型配置**（与 Kotoba 的 AI 解释同一套服务即可）。
+- 建议加：请求上限（如单次 ≤ 10 分钟音频）、磁盘缓存（同 `video_id` 直接回放上次结果）、并发 1–2、以及把 `provider` 填成 `sherpa-onnx` 方便排查。
+- 隐私：视频/音频只在你自己的服务器上处理；Kotoba 只发 `video_id`（以及可选的语言/翻译开关）。
+
 ## 5. 核心算法说明
 
 **分词**：对字幕做动态规划，最小化整句总代价，而不是最大化得分——后者会让「一个真实词」输给「五个看起来像词的假字」。每个 token 的代价：
@@ -184,6 +253,9 @@ swiftc -swift-version 5 -Onone Kotoba/Model/*.swift Tools/verify_core.swift \
 - 未做后台播放、锁屏控制、通知提醒。
 - 精听模式对 YouTube 片段用本地朗读演示（内嵌播放器无法逐句 seek），只有本地/网络视频文件走真实音轨。
 - 汉字笔顺**尚未实现**：KanjiVG 全量数据体积过大，本轮不做半成品渲染，界面上不显示任何未经验证的笔顺，留待下一轮。
+- **云端转写的服务端不在这个仓库里**：Kotoba 只提供客户端与接口契约；没有服务时该按钮不出现，一切保持离线可用。音频上传变体（`/transcribe-audio`）只有契约，客户端尚未实现。
+- **YouTube 字幕抓取依赖公开字幕轨**：没有服务端、也不做 ASR，无法为无字幕视频生成字幕；自动字幕在无登录时可能被 YouTube 拒绝（403/429），此时需要手动粘贴。抓到的只有日语原文，**中文翻译不自动生成**。
+- **素材库不含第三方目录**：不做打包的分级视频清单（版权原因），只整理用户自己的片段。
 - **无障碍只在代码层验证**：本机没有 Xcode/模拟器，VoiceOver 的实际朗读、200% 字号下的真实排版、Voice Control 均未在设备上确认；`Tools/check_accessibility.py` 只能保证「没有硬编码字号、纯图标按钮有标签、图表有数值、颜色有第二通道、Reduce Motion 已接」这些结构性不变量。
 - 汉字中文释义只覆盖 N5+N4（284 字，人工核对）：KANJIDIC2 本身只有英/西/法/葡释义，其余字显示带标注的英文原义，不做机器翻译。
 - 跟读录音需要麦克风权限；录音文件只在本机 `Documents/Shadowing`，不会随备份导出（备份只含文字记录与文件名）。
@@ -266,6 +338,29 @@ entries: 11794
   PASS  kanji card reuses the 1-minute step — 1.0 min；graduates to a day
   PASS  kanji cards join the review queue；kanji stats per level；learned kanji counted
   PASS  kanji cards survive a backup round trip
+== youtube captions ==
+  PASS  caption tracks parsed — 3 tracks；prefers manual japanese over ASR
+  PASS  json3 captions parsed — 2 cues；json3 timing kept；json3 text joined
+  PASS  legacy XML captions parsed — 2 cues；XML entities and tags stripped
+== youtube import with captions ==
+  PASS  caption fetch pipeline works offline；caption clip imported
+  PASS  caption clip keeps timings；caption clip is a youtube clip
+== self-hosted transcription settings ==
+  PASS  off by default；no server address baked in；trailing slash normalised
+  PASS  endpoint gets /transcribe；timeout clamped；non-http and garbage addresses rejected
+== transcription request shape / decoding / retry ==
+  PASS  POST + JSON + video_id + translate_to；no Authorization header
+  PASS  lines/segments aliases, sorting, empty-row drop, empty/html rejected
+  PASS  retries 5xx then succeeds — 3 attempts；backoff [1.0, 3.0]；4xx not retried
+  PASS  network failure after retries；disabled client never hits the network
+== transcription integration ==
+  PASS  AppModel refuses without configuration；server transcript becomes a clip
+  PASS  timings kept；provider recorded；settings survive a backup；old backups stay off
+== echo session ==
+  PASS  echo starts at listen → understand → imitate → compare
+  PASS  echo wraps to next sentence；echo finishes after the last sentence
+== word states ==
+  PASS  unseen → known → learning → unseen transitions
 == accessibility: typography scale ==
   PASS  small sizes map to caption styles；body size maps to body
   PASS  large display sizes map to title styles；mapping never decreases as size grows

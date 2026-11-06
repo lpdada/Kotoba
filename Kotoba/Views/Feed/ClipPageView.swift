@@ -13,6 +13,7 @@ struct ClipPageView: View {
     @State private var isSpeechPlaying = false
     @State private var appearedAt: Date?
     @State private var showIntensive = false
+    @State private var showEcho = false
     @ScaledMetric(relativeTo: .body) private var subtitleMaxHeight: CGFloat = 190
     @State private var resumeAfterIntensive = false
 
@@ -43,6 +44,10 @@ struct ClipPageView: View {
         }
         .onChange(of: app.profile.loopClip) { _, loops in
             player.setLooping(loops)
+        }
+        .sheet(isPresented: $showEcho, onDismiss: restoreAfterMode) {
+            EchoPracticeView(clip: clip, player: player)
+                .environmentObject(app)
         }
         .sheet(isPresented: $showIntensive, onDismiss: restoreAfterIntensive) {
             IntensiveListeningView(clip: clip, player: player)
@@ -225,6 +230,9 @@ struct ClipPageView: View {
             railButton(symbol: "headphones", label: "精听") {
                 openIntensive()
             }
+            railButton(symbol: "waveform.circle", label: "回声") {
+                openEcho()
+            }
             railButton(symbol: "arrow.counterclockwise", label: "重播") {
                 replay()
             }
@@ -262,6 +270,7 @@ struct ClipPageView: View {
     private func railHint(for label: String) -> String {
         switch label {
         case "精听": return "逐句播放并跟读"
+        case "回声": return "听、懂、模仿、对比四步练习"
         case "重播": return "从这一段的开头重新播放"
         case "整句": return "把这条字幕保存成整句卡片"
         case "信息": return "查看片段难度、字幕与来源"
@@ -323,6 +332,20 @@ struct ClipPageView: View {
         let text = clip.lines.joined(separator: "。")
         app.speech.speak(text, rate: app.profile.speechRate)
         isSpeechPlaying = true
+    }
+
+    private func openEcho() {
+        resumeAfterIntensive = player.isPlaying || isSpeechPlaying
+        player.pause()
+        if isSpeechPlaying {
+            app.speech.stop()
+            isSpeechPlaying = false
+        }
+        showEcho = true
+    }
+
+    private func restoreAfterMode() {
+        restoreAfterIntensive()
     }
 
     private func openIntensive() {

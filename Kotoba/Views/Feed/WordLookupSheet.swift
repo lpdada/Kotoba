@@ -23,6 +23,7 @@ struct WordLookupSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
+                    stateRow
                     kanjiStrip
                     meaningsSection
                     explanationSection
@@ -107,6 +108,42 @@ struct WordLookupSheet: View {
         .card()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("词条 \(entry?.word ?? surface)"))
+    }
+
+    // MARK: Word state
+
+    private var wordIdentifier: String {
+        entry?.id ?? ("surface:" + surface)
+    }
+
+    private var currentState: WordState {
+        app.wordState(entryID: wordIdentifier)
+    }
+
+    private var stateRow: some View {
+        HStack(spacing: 6) {
+            Text("状态")
+                .font(Theme.font(size: 10))
+                .foregroundStyle(Theme.secondaryText)
+            ForEach(WordState.allCases) { state in
+                Chip(
+                    text: state.title,
+                    isSelected: currentState == state,
+                    tint: state == .known ? Theme.jade : (state == .learning ? Theme.amber : Theme.secondaryText)
+                ) {
+                    savedWord = app.setWordState(
+                        state,
+                        entry: entry,
+                        surface: surface,
+                        sentence: sentence,
+                        clip: clip
+                    )
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("词的状态：\(currentState.title)"))
     }
 
     // MARK: Kanji

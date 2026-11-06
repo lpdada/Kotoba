@@ -142,6 +142,8 @@ struct AppSnapshot: Codable {
     var shadowingRecords: [ShadowingRecord]?
     /// Optional for the same reason: added with the kanji layer.
     var kanjiCards: [KanjiCard]?
+    /// Optional: added with the self-hosted transcription option.
+    var transcription: TranscriptionSettings?
 }
 
 // MARK: - Review load forecast

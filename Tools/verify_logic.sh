@@ -29,6 +29,9 @@ FILES=(
   Kotoba/Services/ClipLibrary.swift
   Kotoba/Services/ReviewSession.swift
   Kotoba/Services/SubtitleImport.swift
+  Kotoba/Services/TranscriptionClient.swift
+  Kotoba/Services/YouTubeCaptions.swift
+  Kotoba/Services/EchoSession.swift
   Kotoba/Services/KanjiStore.swift
   Kotoba/Services/IntensiveListening.swift
   Kotoba/Services/BackupService.swift

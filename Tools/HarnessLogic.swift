@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Behavioural checks for the app's decision layer, executed on Linux through
 /// `Tools/verify_logic.sh` (platform services are replaced by `Tools/stubs`).
@@ -7,7 +10,8 @@ import Foundation
 /// scheduler ladder, rating effects, undo and daily activity.
 @main
 struct HarnessLogic {
-    static func main() {
+    @MainActor
+    static func main() async {
         var failures = 0
 
         func check(_ name: String, _ condition: Bool, _ detail: String = "") {
@@ -19,7 +23,6 @@ struct HarnessLogic {
             }
         }
 
-        MainActor.assumeIsolated {
             let dictionaryPath = CommandLine.arguments.count > 1
                 ? CommandLine.arguments[1]
                 : "Kotoba/Resources/Dictionary.json"
@@ -558,6 +561,93 @@ struct HarnessLogic {
                     FontScale.defaultSize(for: FontScale.textStyle(for: size)) > 0
                 }
             )
+            print("\n== youtube captions ==")
+            let watchHTML = """
+            {"playabilityStatus":{"status":"OK"},"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[
+            {"baseUrl":"https://www.youtube.com/api/timedtext?v=abc&lang=ja&kind=asr&x=1","name":{"simpleText":"Japanese (auto)"},"languageCode":"ja","kind":"asr"},
+            {"baseUrl":"https://www.youtube.com/api/timedtext?v=abc&lang=ja","name":{"simpleText":"Japanese"},"languageCode":"ja"},
+            {"baseUrl":"https://www.youtube.com/api/timedtext?v=abc&lang=en","languageCode":"en"}
+            ]}}}
+            """
+            let tracks = (try? YouTubeCaptionService.tracks(fromWatchHTML: watchHTML)) ?? []
+            check("caption tracks parsed", tracks.count == 3, "\(tracks.count) tracks")
+            check("japanese manual track exists", tracks.contains { $0.languageCode == "ja" && !$0.isAutomatic })
+            let preferred = tracks.isEmpty ? nil : YouTubeCaptionService.preferredTrack(tracks)
+            check("prefers manual japanese over ASR", preferred?.kind == "" && preferred?.languageCode == "ja")
+
+            let json3 = """
+            {"events":[{"tStartMs":1000,"dDurationMs":2000,"segs":[{"utf8":"すみません、"}]},
+            {"tStartMs":3000,"dDurationMs":1500,"segs":[{"utf8":"これ、ください。"}]},
+            {"tStartMs":4500,"dDurationMs":0}]}
+            """
+            let jsonCues = YouTubeCaptionService.cues(fromJSON3: Data(json3.utf8))
+            check("json3 captions parsed", jsonCues.count == 2, "\(jsonCues.count) cues")
+            check("json3 timing kept", abs(jsonCues[0].start - 1.0) < 0.001 && abs(jsonCues[1].start - 3.0) < 0.001)
+            check("json3 text joined", jsonCues[1].text == "これ、ください。")
+
+            let xml = "<transcript><text start=\"0.5\" dur=\"2.1\">&#39;&lt;i&gt;はい&lt;/i&gt;&#39; &amp;amp; いいえ</text><text start=\"3.0\" dur=\"1.0\">はい</text></transcript>"
+            let xmlCues = YouTubeCaptionService.cues(fromXML: xml)
+            check("legacy XML captions parsed", xmlCues.count == 2, "\(xmlCues.count) cues")
+            check("XML entities and tags stripped", xmlCues.first?.text.contains("<i>") == false && xmlCues.first?.text.contains("&amp;") == false, xmlCues.first?.text ?? "-")
+
+            print("\n== youtube import with captions ==")
+            let captionService = YouTubeCaptionService { url in
+                if url.absoluteString.contains("fmt=json3") { return Data(json3.utf8) }
+                return Data(watchHTML.utf8)
+            }
+            var fetched: (track: YouTubeCaptionTrack, cues: [SubtitleCue])?
+            do { fetched = try await captionService.fetchCues(videoID: "abc") } catch { fetched = nil }
+            check("caption fetch pipeline works offline", fetched?.cues.count == 2)
+            if let fetched {
+                let captionClip = app.importYouTubeClip(
+                    videoID: "abc",
+                    title: "抓取测试",
+                    cues: fetched.cues,
+                    translation: "",
+                    level: .n5
+                )
+                check("caption clip imported", captionClip?.lines.count == 2)
+                check("caption clip keeps timings", captionClip?.lineTimings?.count == 2 && captionClip?.startSeconds == 1.0)
+                check("caption clip is a youtube clip", { if case .youtube = captionClip?.media { return true } else { return false } }())
+            }
+
+            print("\n== echo session ==")
+            let echoSentences = IntensiveSentenceBuilder.build(for: timedClip)
+            var echo = EchoSession(sentences: echoSentences)
+            check("echo starts at listen", echo.step == .listen && echo.index == 0)
+            check("echo reaches understand", { echo.advance(); return echo.step == .understand }())
+            check("echo reaches imitate", { echo.advance(); return echo.step == .imitate }())
+            check("echo reaches compare", { echo.advance(); return echo.step == .compare }())
+            let movedOn = echo.advance()
+            check("echo wraps to next sentence", movedOn && echo.index == 1 && echo.step == .listen, "\(echo.index)/\(echo.step.title)")
+            var lastEcho = EchoSession(sentences: echoSentences, index: echoSentences.count - 1)
+            _ = lastEcho.advance(); _ = lastEcho.advance(); _ = lastEcho.advance()
+            _ = lastEcho.advance()
+            check("echo finishes after the last sentence", lastEcho.isFinished)
+            check("echo progress is bounded", echo.progress >= 0 && echo.progress <= 1)
+
+            print("\n== word states ==")
+            if let movieEntry = app.dictionary.best("映画") {
+                app.words.removeAll { $0.word == "映画" }
+                check("unsaved word is unseen", app.wordState(entryID: movieEntry.id) == .unseen)
+                let known = app.setWordState(.known, entry: movieEntry, surface: "映画")
+                check("known state saved the word", known != nil && known?.familiarity == 5)
+                check("known state derives known", app.wordState(entryID: movieEntry.id) == .known)
+                let learning = app.setWordState(.learning, entry: movieEntry, surface: "映画")
+                check("learning state resets scheduling", learning?.familiarity == 1 && learning?.scheduling.intervalDays == 0)
+                check("learning state derives learning", app.wordState(entryID: movieEntry.id) == .learning)
+                _ = app.setWordState(.unseen, entry: movieEntry, surface: "映画")
+                check("unseen removes the word", app.wordState(entryID: movieEntry.id) == .unseen && app.words.isEmpty)
+            }
+
+            print("\n== clip library filters ==")
+            if let ytClip = app.customClips.first(where: { if case .youtube = $0.media { return true } else { return false } }) {
+                check("library finds youtube clips", app.libraryClips(source: .youtube).contains { $0.id == ytClip.id })
+                check("library filters by query", app.libraryClips(query: "抓取测试").contains { $0.id == ytClip.id })
+                check("library query misses unrelated text", app.libraryClips(query: "zzzz").isEmpty)
+            }
+            check("library all-source is a superset", app.libraryClips(source: .all).count >= app.libraryClips(source: .youtube).count)
+
             check("state file without the new key still decodes", {
                 var full = AppSnapshot()
                 full.words = [backupWord]
@@ -570,7 +660,170 @@ struct HarnessLogic {
                       let decoded = try? BackupService.decodeSnapshot(from: stripped) else { return false }
                 return decoded.words.count == 1 && (decoded.shadowingRecords ?? []).isEmpty
             }())
+        print("\n== self-hosted transcription settings ==")
+        let defaults = TranscriptionSettings()
+        check("transcription is off by default", defaults.isEnabled == false && defaults.isConfigured == false)
+        check("no server address is baked in", defaults.serverURL.isEmpty)
+
+        var configured = TranscriptionSettings()
+        configured.isEnabled = true
+        configured.serverURL = "https://asr.example.test/"
+        configured.timeoutSeconds = 45
+        check("trailing slash normalised", configured.normalizedServerURL == "https://asr.example.test")
+        check("endpoint gets /transcribe", configured.endpointURL?.absoluteString == "https://asr.example.test/transcribe")
+        check("configured only when enabled", configured.isConfigured)
+        check("timeout clamped", TranscriptionSettings(isEnabled: true, serverURL: "https://a.test", timeoutSeconds: 5).timeoutInterval == 15)
+
+        var bad = TranscriptionSettings()
+        bad.isEnabled = true
+        bad.serverURL = "ftp://nope"
+        check("non-http address rejected", bad.endpointURL == nil && bad.isConfigured == false)
+        bad.serverURL = "not a url"
+        check("garbage address rejected", bad.isConfigured == false)
+
+        var full = configured
+        full.serverURL = "https://asr.example.test/transcribe"
+        check("full endpoint kept as is", full.endpointURL?.absoluteString == "https://asr.example.test/transcribe")
+
+        print("\n== transcription request shape ==")
+        guard let request = try? Self.configuredRequest(configured, videoID: "dQw4w9WgXcQ") else {
+            check("request built", false)
+            return
         }
+        check("request is POST", request.httpMethod == "POST")
+        check("request sets timeout", abs(request.timeoutInterval - 45) < 0.5, "\(request.timeoutInterval)")
+        check("request sends JSON", request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = (try? JSONSerialization.jsonObject(with: request.httpBody ?? Data())) as? [String: Any] ?? [:]
+        check("body carries video id", body["video_id"] as? String == "dQw4w9WgXcQ")
+        check("body asks for Chinese", body["translate_to"] as? String == "zh")
+        check("no secret header set", request.value(forHTTPHeaderField: "Authorization") == nil)
+
+        print("\n== transcription response decoding ==")
+        let payload = """
+        {"language":"ja","provider":"sherpa-onnx","lines":[
+        {"start":3.0,"end":4.2,"japanese":"これ、ください。","chinese":"请给我这个。"},
+        {"start":1.0,"end":2.0,"ja":"すみません","zh":"不好意思"},
+        {"start":5.0,"text":"はい","translation":"好"},
+        {"start":6.0,"end":7.0,"japanese":"   "}]}
+        """
+        guard let decoded = try? TranscriptionClient.decode(Data(payload.utf8)) else {
+            check("transcription payload decodes", false)
+            return
+        }
+        check("decoding keeps three lines and sorts", decoded.lines.count == 3 && decoded.lines[0].start == 1.0, "\(decoded.lines.count)")
+        check("decoding accepts ja/zh aliases", decoded.lines[0].chinese == "不好意思" && decoded.lines[1].japanese == "これ、ください。")
+        check("decoding keeps provider", decoded.provider == "sherpa-onnx")
+        check("chinese column built", decoded.chineseText?.components(separatedBy: "\n").count == 3)
+        var reject = false
+        do { _ = try TranscriptionClient.decode(Data("{\"lines\":[]}".utf8)) } catch { reject = true }
+        check("empty transcript rejected", reject)
+        var decodeFail = false
+        do { _ = try TranscriptionClient.decode(Data("<html>".utf8)) } catch { decodeFail = true }
+        check("html body rejected", decodeFail)
+        check("cue end is clamped", decoded.lines[0].subtitleCue.end >= decoded.lines[0].subtitleCue.start + 0.3)
+
+        print("\n== transcription retry policy ==")
+        let box = AttemptBox()
+        let goodBody = """
+        {"lines":[{"start":0,"end":1,"japanese":"はい","chinese":"好"}]}
+        """
+        let retrying = TranscriptionClient(
+            settings: configured,
+            send: { request in
+                box.attempts += 1
+                let code = box.attempts < 3 ? 500 : 200
+                let data = code == 200 ? Data(goodBody.utf8) : Data("boom".utf8)
+                return (data, code)
+            },
+            sleep: { seconds in box.slept.append(seconds) }
+        )
+        let retried = try? await retrying.transcribe(videoID: "abc")
+        check("retries 5xx then succeeds", box.attempts == 3 && (retried?.lines.count ?? 0) == 1, "\(box.attempts) attempts")
+        check("backoff is 1s then 3s", box.slept == [1, 3], "\(box.slept)")
+
+        let badBox = AttemptBox()
+        let noRetry = TranscriptionClient(
+            settings: configured,
+            send: { request in
+                badBox.attempts += 1
+                return (Data(), 400)
+            },
+            sleep: { seconds in badBox.slept.append(seconds) }
+        )
+        var sawBadRequest = false
+        do { _ = try await noRetry.transcribe(videoID: "abc") } catch let error as TranscriptionError {
+            if case .http(let status, _) = error, status == 400 { sawBadRequest = true }
+        } catch { }
+        check("4xx is not retried", sawBadRequest && badBox.attempts == 1 && badBox.slept.isEmpty, "\(badBox.attempts) attempts")
+
+        let offlineBox = AttemptBox()
+        let offline = TranscriptionClient(
+            settings: configured,
+            send: { _ in
+                offlineBox.attempts += 1
+                throw URLError(.timedOut)
+            },
+            sleep: { _ in }
+        )
+        var offlineFailed = false
+        do { _ = try await offline.transcribe(videoID: "abc") } catch let error as TranscriptionError {
+            if case .network = error { offlineFailed = true }
+        } catch { }
+        check("network failure surfaces after retries", offlineFailed && offlineBox.attempts == 3, "\(offlineBox.attempts) attempts")
+
+        let disabledBox = AttemptBox()
+        let disabledClient = TranscriptionClient(
+            settings: .disabled,
+            send: { _ in disabledBox.attempts += 1; throw URLError(.badURL) },
+            sleep: { _ in }
+        )
+        var disabledThrew = false
+        do { _ = try await disabledClient.transcribe(videoID: "abc") } catch let error as TranscriptionError {
+            if case .notConfigured = error { disabledThrew = true }
+        } catch { }
+        check("disabled client never hits the network", disabledThrew && disabledBox.attempts == 0)
+
+        print("\n== transcription integration ==")
+        app.transcription = .disabled
+        var appRefused = false
+        do { _ = try await app.transcribeYouTube(videoID: "abc") } catch let error as TranscriptionError {
+            if case .notConfigured = error { appRefused = true }
+        } catch { }
+        check("AppModel refuses without configuration", appRefused)
+
+        app.transcription = configured
+        let transcribed = TranscriptionResult(
+            lines: [
+                TranscriptionLine(start: 1.0, end: 2.5, japanese: "すみません", chinese: "不好意思"),
+                TranscriptionLine(start: 2.6, end: 4.0, japanese: "これ、ください", chinese: "请给我这个")
+            ],
+            language: "ja",
+            provider: "sherpa-onnx"
+        )
+        let transcribedClip = app.importTranscribedClip(videoID: "srv123", title: "服务器转写", result: transcribed, level: .n5)
+        check("server transcript becomes a clip", transcribedClip?.lines.count == 2 && transcribedClip?.translationLines.count == 2)
+        check("server clip keeps timings", transcribedClip?.lineTimings?.count == 2 && transcribedClip?.startSeconds == 1.0)
+        check("server clip records provider", transcribedClip?.attribution.contains("sherpa-onnx") == true)
+        check("server clip is a youtube clip", { if case .youtube = transcribedClip?.media { return true } else { return false } }())
+
+        var settingsSnapshot = AppSnapshot()
+        settingsSnapshot.transcription = configured
+        let settingsEncoder = JSONEncoder()
+        settingsEncoder.dateEncodingStrategy = .iso8601
+        var settingsRoundTrip = false
+        if let data = try? settingsEncoder.encode(settingsSnapshot),
+           let restored = try? BackupService.decodeSnapshot(from: data) {
+            settingsRoundTrip = restored.transcription == configured
+        }
+        check("transcription settings survive a backup", settingsRoundTrip)
+        check("old backups without the key stay off", {
+            guard let data = try? settingsEncoder.encode(AppSnapshot()) else { return false }
+            guard var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+            object.removeValue(forKey: "transcription")
+            guard let stripped = try? JSONSerialization.data(withJSONObject: object),
+                  let restored = try? BackupService.decodeSnapshot(from: stripped) else { return false }
+            return (restored.transcription ?? .disabled).isEnabled == false
+        }())
 
         print("\n\(failures == 0 ? "ALL CHECKS PASSED" : "\(failures) CHECK(S) FAILED")")
         exit(failures == 0 ? 0 : 1)
@@ -586,4 +839,13 @@ struct HarnessLogic {
             deckIDs: [deck]
         )
     }
+
+    private static func configuredRequest(_ settings: TranscriptionSettings, videoID: String) throws -> URLRequest {
+        try TranscriptionClient(settings: settings, send: { _ in (Data(), 200) }, sleep: { _ in }).makeRequest(videoID: videoID)
+    }
+}
+
+final class AttemptBox {
+    var attempts = 0
+    var slept: [Double] = []
 }

@@ -133,7 +133,11 @@ struct ProfileHomeView: View {
                 ProgressScreen()
             }
             Hairline().padding(.leading, 48)
-            menuRow(icon: "film.stack", title: "内容管理") {
+            menuRow(icon: "film.stack", title: "素材库") {
+                ClipLibraryView()
+            }
+            Hairline().padding(.leading, 48)
+            menuRow(icon: "tray.and.arrow.down", title: "内容管理") {
                 ClipImporterView()
             }
             Hairline().padding(.leading, 48)

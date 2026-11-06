@@ -17,6 +17,9 @@ struct ClipImporterView: View {
     @State private var youtubeLevel: JLPTLevel = .n5
     @State private var youtubeStart = ""
     @State private var youtubeEnd = ""
+    @State private var fetchedCues: [SubtitleCue] = []
+    @State private var captionStatus: String?
+    @State private var isFetchingCaptions = false
 
     // Subtitle card
     @State private var isImportingSubtitles = false
@@ -451,6 +454,40 @@ struct ClipImporterView: View {
                             TagLabel(text: "链接自带起点 \(Int(start)) 秒", tint: Theme.lilac)
                         }
                     }
+                    HStack(spacing: 8) {
+                        SecondaryActionButton(
+                            title: isFetchingCaptions ? "正在读取字幕…" : "抓取日语字幕",
+                            systemImage: "captions.bubble",
+                            tint: Theme.accent
+                        ) {
+                            Task { await fetchCaptions(for: parsedLink.videoID) }
+                        }
+                        .disabled(isFetchingCaptions)
+                        if !fetchedCues.isEmpty {
+                            TagLabel(text: "\(fetchedCues.count) 条", tint: Theme.jade)
+                        }
+                    }
+                    if app.transcription.isConfigured {
+                        SecondaryActionButton(
+                            title: isFetchingCaptions ? "正在转写…" : "服务器转写",
+                            systemImage: "server.rack",
+                            tint: Theme.lilac
+                        ) {
+                            Task { await fetchViaServer(videoID: parsedLink.videoID) }
+                        }
+                        .disabled(isFetchingCaptions)
+                        .accessibilityHint(Text("用你自建的转写服务取回日文字幕"))
+                    } else {
+                        Text("自建转写未启用：设置 › 云端转写")
+                            .font(Theme.font(size: 10))
+                            .foregroundStyle(Theme.secondaryText)
+                    }
+                    if let captionStatus {
+                        Text(captionStatus)
+                            .font(Theme.font(size: 10))
+                            .foregroundStyle(isFetchingCaptions ? Theme.secondaryText : Theme.jade)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 } else if !youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("无法识别这个链接。支持 watch?v= / youtu.be / shorts / embed / live，或直接粘贴 11 位视频 ID。")
                         .font(Theme.font(size: 11))
@@ -570,6 +607,45 @@ struct ClipImporterView: View {
         .background(Theme.cardMuted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
+    private func fetchCaptions(for videoID: String) async {
+        guard !isFetchingCaptions else { return }
+        isFetchingCaptions = true
+        captionStatus = "正在读取 YouTube 公开字幕轨道…"
+        defer { isFetchingCaptions = false }
+        do {
+            let result = try await YouTubeCaptionService().fetchCues(videoID: videoID)
+            fetchedCues = result.cues
+            youtubeJapanese = result.cues.map(\.text).joined(separator: "\n")
+            youtubeStart = String(format: "%.1f", result.cues.first?.start ?? 0)
+            youtubeEnd = String(format: "%.1f", result.cues.last?.end ?? 0)
+            captionStatus = "已抓取 \(result.cues.count) 条字幕（\(result.track.displayName)），可以直接保存"
+        } catch {
+            fetchedCues = []
+            captionStatus = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func fetchViaServer(videoID: String) async {
+        guard !isFetchingCaptions else { return }
+        isFetchingCaptions = true
+        captionStatus = "正在请求自建转写服务（可能需要几十秒）…"
+        defer { isFetchingCaptions = false }
+        do {
+            let result = try await app.transcribeYouTube(videoID: videoID)
+            fetchedCues = result.lines.map(\.subtitleCue)
+            youtubeJapanese = result.japaneseText
+            if let chinese = result.chineseText {
+                youtubeChinese = chinese
+            }
+            youtubeStart = String(format: "%.1f", result.lines.first?.start ?? 0)
+            youtubeEnd = String(format: "%.1f", result.lines.last?.end ?? 0)
+            captionStatus = "服务器返回 \(result.lines.count) 条字幕（\(result.provider ?? "server")）"
+        } catch {
+            fetchedCues = []
+            captionStatus = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     private var parsedLink: YouTubeLinkParser.Parsed? {
         YouTubeLinkParser.parse(youtubeLink)
     }
@@ -607,22 +683,38 @@ struct ClipImporterView: View {
         let transcript = youtubeJapanese.trimmingCharacters(in: .whitespacesAndNewlines)
         let translation = youtubeChinese.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = youtubeTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let clip = Clip(
-            id: "yt-\(parsed.videoID)-\(Int(start))-\(Int(end))",
-            title: title.isEmpty ? "YouTube 片段 \(parsed.videoID)" : title,
-            series: "YouTube",
-            episode: "",
-            transcript: transcript,
-            translation: translation,
-            translationEN: "",
-            level: youtubeLevel,
-            topics: [],
-            durationSeconds: max(end - start, 1),
-            media: .youtube(id: parsed.videoID, start: start, end: end),
-            attribution: "YouTube 内嵌播放，视频由平台托管",
-            custom: true
-        )
-        app.addCustomClip(clip)
+        let clip: Clip
+        if !fetchedCues.isEmpty {
+            guard let captionClip = app.importYouTubeClip(
+                videoID: parsed.videoID,
+                title: title,
+                cues: fetchedCues,
+                translation: translation,
+                level: youtubeLevel,
+                attribution: "字幕来自 YouTube 公开轨道；视频由平台托管"
+            ) else {
+                app.toast = "字幕为空，保存失败"
+                return
+            }
+            clip = captionClip
+        } else {
+            clip = Clip(
+                id: "yt-\(parsed.videoID)-\(Int(start))-\(Int(end))",
+                title: title.isEmpty ? "YouTube 片段 \(parsed.videoID)" : title,
+                series: "YouTube",
+                episode: "",
+                transcript: transcript,
+                translation: translation,
+                translationEN: "",
+                level: youtubeLevel,
+                topics: [],
+                durationSeconds: max(end - start, 1),
+                media: .youtube(id: parsed.videoID, start: start, end: end),
+                attribution: "YouTube 内嵌播放，视频由平台托管",
+                custom: true
+            )
+            app.addCustomClip(clip)
+        }
         app.toast = "已加入片段库：\(clip.title)"
         youtubeLink = ""
         youtubeTitle = ""
@@ -630,6 +722,8 @@ struct ClipImporterView: View {
         youtubeChinese = ""
         youtubeStart = ""
         youtubeEnd = ""
+        fetchedCues = []
+        captionStatus = nil
     }
 
     static let sampleJSON = """

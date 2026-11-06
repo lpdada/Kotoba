@@ -24,6 +24,7 @@
 		F8F61D5A898C705E98C0FC16 /* Deinflector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */; };
 		9D4A31E82E976CB5DE507665 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */; };
 		882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */; };
+		C190E4ECC35D45147B81EEA9 /* EchoSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05E92F0E37E9C838C498A66C /* EchoSession.swift */; };
 		09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */; };
 		2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */; };
 		ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238B2904DEB16DD5BE2512CB /* KanjiStore.swift */; };
@@ -33,12 +34,15 @@
 		BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFC9527EB780565989BD136 /* SpeechService.swift */; };
 		88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD405D373EDA8E12541058F2 /* SubtitleImport.swift */; };
 		7C6947AD08E2E48BEC5512E8 /* Tokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5784A229DA54E6AE1A86E998 /* Tokenizer.swift */; };
+		D67C42155D958E32EDBEEA40 /* TranscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09AFAB2192AF30F5D9D69448 /* TranscriptionClient.swift */; };
 		EBBBAEB97CD5AFF18E98D26E /* VideoPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */; };
+		A6DDB408D66395B162A33D0A /* YouTubeCaptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B044D4CF526E9810873133E /* YouTubeCaptions.swift */; };
 		50C883C34C81C95F02C63EBD /* YouTubeEmbed.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */; };
 		4A6E2FA1C2A200C39449D4F4 /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86CD5EA83F4C6596D02756E /* CommonViews.swift */; };
 		CD2DFBFB244A46643A25390F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD3226AE0B2CD4E2B034D8FF /* Theme.swift */; };
 		79FB4D3D7A0F36F1553D0433 /* ClipInfoSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82DAC04A52507AFB043B7131 /* ClipInfoSheet.swift */; };
 		981737F2566E4005F84ED7E8 /* ClipPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E71AFB9C22465B447CCCEB3 /* ClipPageView.swift */; };
+		BEB5ED6BC2D7086C747D2F70 /* EchoPracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEF4DE23965A7841D544D11 /* EchoPracticeView.swift */; };
 		3DB086B124B444A0B1FE17E2 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED96E0F4E6DA807A91465D89 /* FeedView.swift */; };
 		67F9996CCC0E3A129F660FEA /* IntensiveListeningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3275347A84ED19F556D690A /* IntensiveListeningView.swift */; };
 		972FD0DCC6A05FB7ABBA5566 /* SubtitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A61DDE931D4A48981FDA7FF4 /* SubtitleView.swift */; };
@@ -50,6 +54,7 @@
 		69EE80892C3A6DD6F30B5F69 /* ClipImporterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FF54DB42D8EF2A91D60210 /* ClipImporterView.swift */; };
 		C7F63A3886229C864218CC0A /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029B59022EF31C921D015940 /* DiagnosticsView.swift */; };
 		8AE45F4D18CB634054006844 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11EC73C6BF3644B8C7EB721 /* SettingsView.swift */; };
+		49A05B6598EAFC566604DC57 /* ClipLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5534A3FB0FAF7D986B039F34 /* ClipLibraryView.swift */; };
 		1C9DCE24D82D308215E11856 /* DecksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D36E6B1431612B7CD06EB56B /* DecksView.swift */; };
 		3424C6E5A899CC37D7A86DEF /* KanjiDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */; };
 		13C5753C732B0513267A9645 /* KanjiListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */; };
@@ -79,6 +84,7 @@
 		7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deinflector.swift; sourceTree = "<group>"; };
 		B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryStore.swift; sourceTree = "<group>"; };
+		05E92F0E37E9C838C498A66C /* EchoSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoSession.swift; sourceTree = "<group>"; };
 		B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRanker.swift; sourceTree = "<group>"; };
 		108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntensiveListening.swift; sourceTree = "<group>"; };
 		238B2904DEB16DD5BE2512CB /* KanjiStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiStore.swift; sourceTree = "<group>"; };
@@ -88,12 +94,15 @@
 		7FFC9527EB780565989BD136 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		AD405D373EDA8E12541058F2 /* SubtitleImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleImport.swift; sourceTree = "<group>"; };
 		5784A229DA54E6AE1A86E998 /* Tokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokenizer.swift; sourceTree = "<group>"; };
+		09AFAB2192AF30F5D9D69448 /* TranscriptionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionClient.swift; sourceTree = "<group>"; };
 		6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayback.swift; sourceTree = "<group>"; };
+		6B044D4CF526E9810873133E /* YouTubeCaptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeCaptions.swift; sourceTree = "<group>"; };
 		AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeEmbed.swift; sourceTree = "<group>"; };
 		D86CD5EA83F4C6596D02756E /* CommonViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonViews.swift; sourceTree = "<group>"; };
 		CD3226AE0B2CD4E2B034D8FF /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		82DAC04A52507AFB043B7131 /* ClipInfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipInfoSheet.swift; sourceTree = "<group>"; };
 		2E71AFB9C22465B447CCCEB3 /* ClipPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipPageView.swift; sourceTree = "<group>"; };
+		1AEF4DE23965A7841D544D11 /* EchoPracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoPracticeView.swift; sourceTree = "<group>"; };
 		ED96E0F4E6DA807A91465D89 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		A3275347A84ED19F556D690A /* IntensiveListeningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntensiveListeningView.swift; sourceTree = "<group>"; };
 		A61DDE931D4A48981FDA7FF4 /* SubtitleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleView.swift; sourceTree = "<group>"; };
@@ -105,6 +114,7 @@
 		45FF54DB42D8EF2A91D60210 /* ClipImporterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipImporterView.swift; sourceTree = "<group>"; };
 		029B59022EF31C921D015940 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		B11EC73C6BF3644B8C7EB721 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5534A3FB0FAF7D986B039F34 /* ClipLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipLibraryView.swift; sourceTree = "<group>"; };
 		D36E6B1431612B7CD06EB56B /* DecksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecksView.swift; sourceTree = "<group>"; };
 		7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiDetailView.swift; sourceTree = "<group>"; };
 		1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanjiListView.swift; sourceTree = "<group>"; };
@@ -203,6 +213,7 @@
 				7A3AEB0026F41471EEDA8D3F /* Deinflector.swift */,
 				B6E0162A83113EF1AFA3E305 /* Diagnostics.swift */,
 				4A5FB2E1A2B8119D75E20254 /* DictionaryStore.swift */,
+				05E92F0E37E9C838C498A66C /* EchoSession.swift */,
 				B8FE36BBEDCBA8622FA03FF2 /* FeedRanker.swift */,
 				108CFA3ABE3A8EB8BC25012A /* IntensiveListening.swift */,
 				238B2904DEB16DD5BE2512CB /* KanjiStore.swift */,
@@ -212,7 +223,9 @@
 				7FFC9527EB780565989BD136 /* SpeechService.swift */,
 				AD405D373EDA8E12541058F2 /* SubtitleImport.swift */,
 				5784A229DA54E6AE1A86E998 /* Tokenizer.swift */,
+				09AFAB2192AF30F5D9D69448 /* TranscriptionClient.swift */,
 				6C891F19772AFE82F23DB3D4 /* VideoPlayback.swift */,
+				6B044D4CF526E9810873133E /* YouTubeCaptions.swift */,
 				AE3B22514FF47CFF670D4F78 /* YouTubeEmbed.swift */,
 			);
 			path = Services;
@@ -245,6 +258,7 @@
 			children = (
 				82DAC04A52507AFB043B7131 /* ClipInfoSheet.swift */,
 				2E71AFB9C22465B447CCCEB3 /* ClipPageView.swift */,
+				1AEF4DE23965A7841D544D11 /* EchoPracticeView.swift */,
 				ED96E0F4E6DA807A91465D89 /* FeedView.swift */,
 				A3275347A84ED19F556D690A /* IntensiveListeningView.swift */,
 				A61DDE931D4A48981FDA7FF4 /* SubtitleView.swift */,
@@ -284,6 +298,7 @@
 		5115DB46860A5469B4588228 /* Vocabulary */ = {
 			isa = PBXGroup;
 			children = (
+				5534A3FB0FAF7D986B039F34 /* ClipLibraryView.swift */,
 				D36E6B1431612B7CD06EB56B /* DecksView.swift */,
 				7FB26727757054D12F94E8D1 /* KanjiDetailView.swift */,
 				1C82FCD69E1968A5177FDB42 /* KanjiListView.swift */,
@@ -383,6 +398,7 @@
 				F8F61D5A898C705E98C0FC16 /* Deinflector.swift in Sources */,
 				9D4A31E82E976CB5DE507665 /* Diagnostics.swift in Sources */,
 				882FABAABD85F408C3437AB5 /* DictionaryStore.swift in Sources */,
+				C190E4ECC35D45147B81EEA9 /* EchoSession.swift in Sources */,
 				09620F65D358380EEA939B37 /* FeedRanker.swift in Sources */,
 				2C7A108FF9C634D8A4F99BD7 /* IntensiveListening.swift in Sources */,
 				ECC34F54D3FFE4301DF5536F /* KanjiStore.swift in Sources */,
@@ -392,12 +408,15 @@
 				BA0049EAD552DA05D2FDE67D /* SpeechService.swift in Sources */,
 				88F4E9969B1AD4FBCF532B7B /* SubtitleImport.swift in Sources */,
 				7C6947AD08E2E48BEC5512E8 /* Tokenizer.swift in Sources */,
+				D67C42155D958E32EDBEEA40 /* TranscriptionClient.swift in Sources */,
 				EBBBAEB97CD5AFF18E98D26E /* VideoPlayback.swift in Sources */,
+				A6DDB408D66395B162A33D0A /* YouTubeCaptions.swift in Sources */,
 				50C883C34C81C95F02C63EBD /* YouTubeEmbed.swift in Sources */,
 				4A6E2FA1C2A200C39449D4F4 /* CommonViews.swift in Sources */,
 				CD2DFBFB244A46643A25390F /* Theme.swift in Sources */,
 				79FB4D3D7A0F36F1553D0433 /* ClipInfoSheet.swift in Sources */,
 				981737F2566E4005F84ED7E8 /* ClipPageView.swift in Sources */,
+				BEB5ED6BC2D7086C747D2F70 /* EchoPracticeView.swift in Sources */,
 				3DB086B124B444A0B1FE17E2 /* FeedView.swift in Sources */,
 				67F9996CCC0E3A129F660FEA /* IntensiveListeningView.swift in Sources */,
 				972FD0DCC6A05FB7ABBA5566 /* SubtitleView.swift in Sources */,
@@ -409,6 +428,7 @@
 				69EE80892C3A6DD6F30B5F69 /* ClipImporterView.swift in Sources */,
 				C7F63A3886229C864218CC0A /* DiagnosticsView.swift in Sources */,
 				8AE45F4D18CB634054006844 /* SettingsView.swift in Sources */,
+				49A05B6598EAFC566604DC57 /* ClipLibraryView.swift in Sources */,
 				1C9DCE24D82D308215E11856 /* DecksView.swift in Sources */,
 				3424C6E5A899CC37D7A86DEF /* KanjiDetailView.swift in Sources */,
 				13C5753C732B0513267A9645 /* KanjiListView.swift in Sources */,
@@ -531,7 +551,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -540,7 +560,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -554,7 +574,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -563,7 +583,7 @@
 									"$(inherited)",
 									"@executable_path/Frameworks",
 								);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.kotoba.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
