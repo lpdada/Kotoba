@@ -16,10 +16,7 @@ struct SettingsView: View {
     @State private var restoreError: String?
     @State private var showRestoreError = false
     @State private var ankiURL: URL?
-    @State private var transcriptionURLDraft = ""
     @State private var transcriptionTestResult: String?
-    @State private var voiceIDDraft = ""
-    @State private var readAloudServerDraft = ""
     @State private var isTestingTranscription = false
 
     var body: some View {
@@ -208,20 +205,20 @@ struct SettingsView: View {
             }
 
             if selectedMode == .server {
-                TextField("朗读服务器（留空则复用转写地址）", text: $readAloudServerDraft)
+                TextField("朗读服务器，例如 https://asr.ysloving.com（留空则复用转写地址）", text: Binding(
+                    get: { app.voiceOptions.serverURL },
+                    set: { value in app.updateVoiceOptions { $0.serverURL = value } }
+                ))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
                     .accessibilityLabel(Text("朗读服务器地址"))
-                    .onSubmit { commitReadAloudServer() }
                 HStack {
-                    Button("保存地址") { commitReadAloudServer() }
-                        .font(Theme.font(size: 13, weight: .semibold))
-                    Spacer()
-                    Text(effectiveReadAloudServer)
+                    Text("当前使用：\(effectiveReadAloudServer)")
                         .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                         .lineLimit(1)
+                    Spacer()
                 }
             }
 
@@ -235,14 +232,12 @@ struct SettingsView: View {
             }
 
             if app.voiceOptions.voice == .custom {
-                TextField("语音 ID，例如 ja-JP-NanamiNeural", text: $voiceIDDraft)
+                TextField("语音 ID，例如 ja-JP-NanamiNeural", text: Binding(
+                    get: { app.voiceOptions.customVoiceID },
+                    set: { value in app.updateVoiceOptions { $0.customVoiceID = value } }
+                ))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .onSubmit { app.updateVoiceOptions { $0.customVoiceID = voiceIDDraft } }
-                Button("保存语音 ID") {
-                    app.updateVoiceOptions { $0.customVoiceID = voiceIDDraft.trimmingCharacters(in: .whitespacesAndNewlines) }
-                }
-                .font(Theme.font(size: 13, weight: .semibold))
             }
 
             HStack {
@@ -273,14 +268,6 @@ struct SettingsView: View {
         case "edge": return "上次：Edge 直连"
         case "server": return "上次：服务器合成"
         default: return "上次：系统语音"
-        }
-    }
-
-    private func commitReadAloudServer() {
-        let value = readAloudServerDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        app.updateVoiceOptions { $0.serverURL = value }
-        if value.isEmpty {
-            app.toast = "朗读服务器已留空，将复用转写地址"
         }
     }
 
@@ -346,18 +333,19 @@ struct SettingsView: View {
                 set: { value in app.updateTranscription { $0.isEnabled = value } }
             ))
 
-            TextField("服务器地址（例如 https://your-host）", text: $transcriptionURLDraft)
+            TextField("服务器地址（例如 https://your-host）", text: Binding(
+                get: { app.transcription.serverURL },
+                set: { value in
+                    app.updateTranscription { $0.serverURL = value }
+                    transcriptionTestResult = nil
+                }
+            ))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.URL)
                 .accessibilityLabel(Text("转写服务器地址"))
-                .onSubmit { commitTranscriptionURL() }
 
             HStack {
-                Button("保存地址") { commitTranscriptionURL() }
-                    .font(Theme.font(size: 13, weight: .semibold))
-                    .accessibilityHint(Text("保存后才会使用这个地址"))
-                Spacer()
                 Text(app.transcription.statusLabel)
                     .font(Theme.font(size: 11))
                     .foregroundStyle(app.transcription.isConfigured ? Theme.jade : Theme.secondaryText)
@@ -392,12 +380,6 @@ struct SettingsView: View {
         } footer: {
             Text("默认关闭。开启并填好地址后，「导入 YouTube 片段」会多出一个「服务器转写」按钮：把视频 ID 发到你的服务器，取回带时间轴的日文字幕（以及可选的中文翻译）。Kotoba 不内置地址、密钥或令牌；鉴权请在你的服务器或反向代理上做。没有配置时一切功能仍按离线流程工作。")
         }
-    }
-
-    private func commitTranscriptionURL() {
-        let value = transcriptionURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        app.updateTranscription { $0.serverURL = value }
-        transcriptionTestResult = nil
     }
 
     private func testTranscription() async {
@@ -494,9 +476,6 @@ struct SettingsView: View {
         nameDraft = app.profile.displayName
         baseURLDraft = app.profile.aiBaseURL
         modelDraft = app.profile.aiModel
-        transcriptionURLDraft = app.transcription.serverURL
-        voiceIDDraft = app.voiceOptions.customVoiceID
-        readAloudServerDraft = app.voiceOptions.serverURL
     }
 
     private func testConnection() async {

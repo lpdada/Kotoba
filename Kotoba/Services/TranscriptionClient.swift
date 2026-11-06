@@ -29,6 +29,8 @@ struct TranscriptionSettings: Codable, Hashable {
     var normalizedServerURL: String {
         var value = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while value.hasSuffix("/") { value.removeLast() }
+        // Users type bare hostnames (asr.ysloving.com); assume https.
+        if !value.isEmpty, !value.contains("://") { value = "https://" + value }
         return value
     }
 

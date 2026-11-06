@@ -64,6 +64,8 @@ final class ServerTTSService {
         var base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while base.hasSuffix("/") { base.removeLast() }
         guard !base.isEmpty else { return nil }
+        // Users type bare hostnames (asr.ysloving.com); assume https.
+        if !base.contains("://") { base = "https://" + base }
         if !base.lowercased().hasSuffix("/tts") { base += "/tts" }
         guard let url = URL(string: base),
               let scheme = url.scheme?.lowercased(),
