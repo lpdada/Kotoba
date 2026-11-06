@@ -137,7 +137,7 @@ struct GrammarBrowseView: View {
                         .font(Theme.font(size: 15, weight: .semibold, design: .serif))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                    LevelBadge(level: shown.level)
+                    LevelBadge(level: entry.level)
                 }
                 if let romaji = entry.romaji, !romaji.isEmpty {
                     Text(romaji)
