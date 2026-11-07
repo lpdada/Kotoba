@@ -317,3 +317,27 @@
   - 转写地址输入改为**直接绑定** `app.transcription.serverURL`，setter 内清空「测试连接」结果；朗读服务器、自定义语音 ID 同样改为直接绑定，删掉 `commit*` 辅助函数与「保存」按钮。
   - `ServerTTSService.endpointURL` 与 `TranscriptionSettings.normalizedServerURL` 在去空白/去尾斜杠后，若地址不含 `://` 则补 `https://`（显式 `http://` 保留）。
   - 语法进度恢复时按当前数据集**剔除失效 id**（595 → 526 的换源遗留），但数据集未载入时不剔除，避免误清空。
+
+### 14.4 中文翻译（本轮）
+
+- **覆盖**：释义 526/526、说明 526/526、例句 1526/1526；状态 `checked` **526**、`partial` 0、`en-fallback` **0**。
+- **流程**：人工译文放在 `Tools/grammar_zh/<level>.json`（`{id: {meaning, notes, examples[]}}`），`Tools/build_grammar.py` 合并进 `Grammar.json`（`meaning_zh` / `notes_zh` / `examples[].zh`），并按「释义 + 说明 + 全部例句」是否齐全判定 `zh_status`（checked / partial / en-fallback）。重跑幂等。
+- **质量约定（本轮政策已更新）**：本轮指令允许「无可信中文来源时由模型批量翻译」，因此 `Grammar.json` 的 `translationPolicy` 已改为「模型批量翻译 + 逐条对照英文核对；未译项标 `en-fallback`，绝不用猜的译文填空」。英文原文一律保留。仍未采用第三方中文语法库——检索到的两个中文语法仓库没有许可证。
+- **UI**：行内与详情默认显示中文（无中文时显示英文并标 `EN`），详情有「显示英文 / 隐藏英文」开关（`@AppStorage("grammar.showEnglish")`），英文原文始终保留。
+- **已完成**：N2（123）与 N1（123）本轮补齐，五个等级全部 `checked`。
+
+## 15. 内置片段扩容（本轮）
+
+- `Tools/build_clips.py`：从 `Grammar.json`（OpenJLPT 例句）与 `Dictionary.json`（JMdict 例句）按等级分组，每组最多 5 句组成一条片段，**不编写任何日文**；确定性（无时间戳/随机），同输入重跑输出一致。
+- 规模：**318 条**（含原 10 条手写示例）—— N5 52 / N4 62 / N3 64 / N2 66 / N1 74，每级均 ≥30。
+- 每条片段带 `line_timings`（按字符数估算语速），`media.kind = generated`（朗读），`attribution` 标明来源（OpenJLPT / JMdict，CC BY-SA 4.0）。
+- 浏览复用既有 `ClipLibraryView`（按等级/来源筛选），无需新界面。
+- 版本：统一为 **0.10.0（build 10）**（生成器、`project.yml`、`project.pbxproj`）。
+
+## 16. 朗读失败可见化（本轮）
+
+- `EdgeTTSRouter.failureCooldown`：600 → **60 秒**，且由 `SpeechService` **按引擎分别记录**（`lastFailureByEngine`）：服务器失败只冷却服务器，直连失败只冷却直连。
+- 服务器模式失败后**约 1 秒重试一次**，仍失败才回落。
+- 任何回落都会给出可见原因：`lastFailureReason` 显示在设置页「上次：…」旁边，同时通过 `onFallback` 弹一次 toast；冷却中也照此显示剩余时间，**不再出现「静默走系统语音」**。
+- 试听按钮走同一条 `speak` 路径（同一重试与 toast），保存的朗读方式保持不变（不会因为失败被改写）。
+- 未改动 `reconfigureSpeech` 与回落链的结构。

@@ -239,9 +239,18 @@ struct SettingsView: View {
                 .font(Theme.font(size: 13, weight: .semibold))
                 .accessibilityHint(Text("用当前语音朗读一句日语"))
                 Spacer()
-                Text(lastEngineLabel)
-                    .font(Theme.font(size: 11))
-                    .foregroundStyle(Theme.secondaryText)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(lastEngineLabel)
+                        .font(Theme.font(size: 11))
+                        .foregroundStyle(Theme.secondaryText)
+                    if let reason = app.speech.lastFailureReason {
+                        Text(reason)
+                            .font(Theme.font(size: 10))
+                            .foregroundStyle(Theme.amber)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(3)
+                    }
+                }
             }
         } header: {
             Text("朗读语音")

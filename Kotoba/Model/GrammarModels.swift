@@ -9,15 +9,23 @@ struct GrammarExample: Codable, Hashable {
     let ja: String
     let furigana: String?
     let en: String
+    /// Hand-checked Chinese; nil means the English is shown instead.
+    let zh: String?
 
-    init(ja: String, furigana: String? = nil, en: String) {
+    init(ja: String, furigana: String? = nil, en: String, zh: String? = nil) {
         self.ja = ja
         self.furigana = furigana
         self.en = en
+        self.zh = zh
+    }
+
+    var hasChinese: Bool {
+        guard let zh else { return false }
+        return !zh.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private enum CodingKeys: String, CodingKey {
-        case ja, furigana, en
+        case ja, furigana, en, zh
     }
 
     init(from decoder: Decoder) throws {
@@ -25,6 +33,7 @@ struct GrammarExample: Codable, Hashable {
         ja = try container.decode(String.self, forKey: .ja)
         furigana = try container.decodeIfPresent(String.self, forKey: .furigana)
         en = try container.decodeIfPresent(String.self, forKey: .en) ?? ""
+        zh = try container.decodeIfPresent(String.self, forKey: .zh)
     }
 }
 
@@ -40,7 +49,19 @@ struct GrammarEntry: Codable, Hashable, Identifiable {
     let tags: [String]
     let examples: [GrammarExample]
     let meaningZH: String?
+    let notesZH: String?
     let zhStatus: String
+
+    /// Chinese when it exists, English otherwise — never blank.
+    var displayMeaning: String {
+        if let meaningZH, !meaningZH.isEmpty { return meaningZH }
+        return meaningEN
+    }
+
+    var displayNotes: String? {
+        if let notesZH, !notesZH.isEmpty { return notesZH }
+        return notesEN
+    }
 
     /// True only when a hand-checked Chinese gloss has been added.
     var hasCheckedChinese: Bool {
@@ -53,6 +74,7 @@ struct GrammarEntry: Codable, Hashable, Identifiable {
         case meaningEN = "meaning_en"
         case notesEN = "notes_en"
         case meaningZH = "meaning_zh"
+        case notesZH = "notes_zh"
         case zhStatus = "zh_status"
     }
 }

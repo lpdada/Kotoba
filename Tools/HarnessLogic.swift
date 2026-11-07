@@ -187,7 +187,8 @@ struct HarnessLogic {
             if let url = URL(fileURLWithPath: "Kotoba/Resources/SampleClips.json") as URL?,
                let data = try? Data(contentsOf: url),
                let collection = try? JSONDecoder().decode(ClipCollection.self, from: data) {
-                bundledOK = collection.clips.count == 10 && collection.clips.allSatisfy { $0.startSeconds == 0 }
+                let handcrafted = collection.clips.filter { $0.id.hasPrefix("sample-") }
+                bundledOK = handcrafted.count == 10 && handcrafted.allSatisfy { $0.startSeconds == 0 }
             }
             check("bundled sample clips decode", bundledOK)
 
@@ -693,6 +694,25 @@ struct HarnessLogic {
         var full = configured
         full.serverURL = "https://asr.example.test/transcribe"
         check("full endpoint kept as is", full.endpointURL?.absoluteString == "https://asr.example.test/transcribe")
+
+        print("\n== read-aloud cooldown and retry ==")
+        check("cooldown is 60 seconds", EdgeTTSRouter.failureCooldown == 60)
+        check(
+            "a recent failure blocks that engine",
+            EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: 10).shouldUseEdge == false
+        )
+        check(
+            "the same engine recovers after 60s",
+            EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: 61).shouldUseEdge
+        )
+        check(
+            "the other engine is unaffected by a sibling failure",
+            EdgeTTSRouter.decide(preferEdge: true, voiceUsable: true, online: true, secondsSinceLastFailure: nil).shouldUseEdge
+        )
+        check(
+            "system-only never consults the cooldown",
+            EdgeTTSRouter.decide(preferEdge: false, voiceUsable: true, online: true, secondsSinceLastFailure: 1).shouldUseEdge == false
+        )
 
         print("\n== scheme-defaulting ==")
         let schemeLess = TranscriptionSettings(isEnabled: true, serverURL: "  asr.example.test//  ", timeoutSeconds: 90, translateToChinese: true)
@@ -1234,8 +1254,11 @@ struct HarnessLogic {
         check("search by romaji finds は", grammarStore.search("wa").contains { $0.romaji == "wa" })
         check("search by english gloss", !grammarStore.search("copula").isEmpty, "\(grammarStore.search("copula").count) hits")
         check("empty query returns everything", grammarStore.search("").count == 526)
-        if let sample = grammarStore.entries.first {
-            check("English meanings are labelled as source text", GrammarStore.meaningLabel(for: sample) == "英文原文")
+        if let untranslated = grammarStore.entries.first(where: { $0.meaningZH == nil }) {
+            check("untranslated meanings are labelled as source text", GrammarStore.meaningLabel(for: untranslated) == "英文原文")
+        }
+        if let translated = grammarStore.entries.first(where: { $0.meaningZH?.isEmpty == false }) {
+            check("translated meanings are labelled as Chinese", GrammarStore.meaningLabel(for: translated) == "中文")
         }
 
         let particle = grammarStore.entries.first { $0.id == "wa" }
@@ -1319,6 +1342,81 @@ struct HarnessLogic {
             )
         }
 
+        print("\n== bundled clips ==")
+        struct ClipFile: Codable { let clips: [Clip] }
+        guard let clipData = try? Data(contentsOf: URL(fileURLWithPath: "Kotoba/Resources/SampleClips.json")),
+              let clipFile = try? JSONDecoder().decode(ClipFile.self, from: clipData) else {
+            check("SampleClips.json decodes", false)
+            return
+        }
+        let allClips = clipFile.clips
+        check("at least 300 clips are bundled", allClips.count >= 300, "\(allClips.count)")
+        let clipsByLevel = Dictionary(grouping: allClips, by: { $0.level ?? .n5 })
+        for level in JLPTLevel.allCases {
+            let count = clipsByLevel[level]?.count ?? 0
+            check("\(level.label) has at least 30 clips", count >= 30, "\(count)")
+        }
+        check("clip ids are unique", Set(allClips.map(\.id)).count == allClips.count)
+        check("every clip has at least one line", allClips.allSatisfy { !$0.lines.isEmpty })
+        check("every clip has a positive duration", allClips.allSatisfy { $0.durationSeconds > 0 })
+        check("every clip records an attribution", allClips.allSatisfy { !$0.attribution.isEmpty })
+        check(
+            "generated clips carry a timing per line",
+            allClips.filter { $0.id.hasPrefix("gclip-") }.allSatisfy { clip in
+                clip.lineTimings?.count == clip.lines.count
+            }
+        )
+        check(
+            "no line is blank",
+            allClips.allSatisfy { clip in clip.lines.allSatisfy { !$0.trimmingCharacters(in: .whitespaces).isEmpty } }
+        )
+
+        print("\n== grammar chinese coverage ==")
+        let coverage = grammarStore.chineseCoverage
+        check("some Chinese is present", coverage.meaning > 0, "\(coverage.meaning)/\(coverage.total)")
+        check(
+            "coverage is reported per field and stays consistent",
+            coverage.meaning == coverage.notes
+                && coverage.checked == coverage.meaning
+                && coverage.examples > 0
+                && coverage.examples <= coverage.examplesTotal,
+            "\(coverage)"
+        )
+        check("status buckets add up", coverage.checked + coverage.partial + (grammarStore.entries.count - coverage.checked - coverage.partial) == 526)
+        check(
+            "every entry is translated or explicitly marked",
+            grammarStore.entries.allSatisfy { entry in
+                switch entry.zhStatus {
+                case "checked": return entry.meaningZH?.isEmpty == false && entry.notesZH?.isEmpty == false && entry.examples.allSatisfy(\.hasChinese)
+                case "partial": return entry.meaningZH?.isEmpty == false
+                default: return entry.meaningZH == nil && entry.zhStatus == "en-fallback"
+                }
+            }
+        )
+        check(
+            "Chinese never replaces the English source",
+            grammarStore.entries.allSatisfy { !$0.meaningEN.isEmpty }
+        )
+        check(
+            "example text is never empty when Chinese exists",
+            grammarStore.entries.allSatisfy { $0.examples.allSatisfy { !$0.hasChinese || !$0.ja.isEmpty } }
+        )
+        // Every bundled entry now has Chinese, so exercise the fallback with a synthetic one.
+        let untranslatedJSON = """
+        {"id":"synthetic","level":"N5","pattern":"〜x","meaning_en":"english only","formation":"","tags":[],"examples":[],"zh_status":"en-fallback"}
+        """
+        check("display meaning falls back to English", {
+            guard let untranslated = try? JSONDecoder().decode(GrammarEntry.self, from: Data(untranslatedJSON.utf8)) else {
+                return false
+            }
+            return untranslated.displayMeaning == "english only"
+        }())
+        check("display meaning prefers Chinese", {
+            guard let translated = grammarStore.entries.first(where: { $0.meaningZH?.isEmpty == false }) else { return false }
+            return translated.displayMeaning == translated.meaningZH
+        }())
+        check("entry ids remain unique", Set(grammarStore.entries.map(\.id)).count == grammarStore.entries.count)
+
         print("\n== grammar archives ==")
         let archiveWithoutProgress = """
         {"schemaVersion":1,"profile":{"displayName":"old","level":"n5","dailyGoalMinutes":10,"dailyNewWords":8,
@@ -1382,9 +1480,12 @@ struct HarnessLogic {
             Set(grammar.entries.map { "\($0.level?.label ?? "-"):\($0.id)" }).count == grammar.entries.count
         )
         check(
-            "no invented Chinese glosses",
-            grammar.entries.allSatisfy { $0.meaningZH == nil && $0.zhStatus == "en-fallback" },
-            "\(grammar.entries.filter { $0.meaningZH != nil }.count) with zh"
+            "Chinese only appears on entries that declare it",
+            grammar.entries.allSatisfy { entry in
+                guard let zh = entry.meaningZH else { return entry.zhStatus == "en-fallback" }
+                return !zh.isEmpty && (entry.zhStatus == "checked" || entry.zhStatus == "partial")
+            },
+            "\(grammar.entries.filter { $0.meaningZH != nil }.count) with zh, all marked"
         )
         check("every entry keeps its English meaning", grammar.entries.allSatisfy { !$0.meaningEN.isEmpty })
         check("licence recorded as CC BY-SA 4.0", grammar.license == "CC BY-SA 4.0", grammar.license ?? "-")

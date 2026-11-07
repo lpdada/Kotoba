@@ -75,6 +75,9 @@ final class AppModel: ObservableObject {
         bootstrapMessage = "正在整理素材…"
         library.load(customClips: customClips)
         refreshMetrics()
+        speech.onFallback = { [weak self] reason in
+            self?.toast = reason
+        }
         aiKeyStored = !(Secrets.value(for: Secrets.aiKeyAccount) ?? "").isEmpty
         if didMigrateServerAddress {
             didMigrateServerAddress = false

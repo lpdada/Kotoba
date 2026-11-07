@@ -16,6 +16,11 @@ struct ClipPageView: View {
     @State private var showEcho = false
     @ScaledMetric(relativeTo: .body) private var subtitleMaxHeight: CGFloat = 190
     @State private var resumeAfterIntensive = false
+    @State private var safeAreaTop: CGFloat = 0
+    @State private var safeAreaBottom: CGFloat = 0
+
+    /// Standard system tab bar height; the bottom padding adds the real safe area.
+    private let tabBarHeight: CGFloat = 49
 
     var body: some View {
         ZStack {
@@ -35,9 +40,17 @@ struct ClipPageView: View {
                 content
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
+            .padding(.top, safeAreaTop + 8)
+            .padding(.bottom, tabBarHeight + safeAreaBottom)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { readSafeArea(proxy) }
+                    .onChange(of: proxy.safeAreaInsets.top) { _, _ in readSafeArea(proxy) }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, _ in readSafeArea(proxy) }
+            }
+        )
         .onAppear(perform: prepare)
         .onChange(of: app.profile.playbackRate) { _, rate in
             player.setRate(rate)
@@ -279,6 +292,11 @@ struct ClipPageView: View {
     }
 
     // MARK: Behaviour
+
+    private func readSafeArea(_ proxy: GeometryProxy) {
+        safeAreaTop = proxy.safeAreaInsets.top
+        safeAreaBottom = proxy.safeAreaInsets.bottom
+    }
 
     private func prepare() {
         analysis = app.library.analysis(for: clip, tokenizer: app.tokenizer)

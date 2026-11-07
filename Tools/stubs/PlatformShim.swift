@@ -72,6 +72,8 @@ final class PersistenceStore {
 final class SpeechService {
     var hasJapaneseVoice: Bool { true }
     var lastEngine: String = "system"
+    var lastFailureReason: String?
+    var onFallback: ((String) -> Void)?
     var isSpeaking: Bool = false
     private(set) var configuredMode: ReadAloudMode?
     private(set) var configuredVoiceID: String?

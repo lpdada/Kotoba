@@ -18,6 +18,10 @@ final class SpeechService: NSObject, ObservableObject {
     @Published private(set) var lastSpoken: String?
     /// "edge", "server" or "system" — shown in settings.
     @Published private(set) var lastEngine: String = "system"
+    /// Why the last utterance fell back to the system voice (nil = no fallback).
+    @Published private(set) var lastFailureReason: String?
+    /// Set by AppModel so a fallback can surface a toast.
+    var onFallback: ((String) -> Void)?
 
     private enum Engine {
         case edge
@@ -36,7 +40,8 @@ final class SpeechService: NSObject, ObservableObject {
     private var queueEngine: String = "server"
     private var lastRate: Double = 0.45
     private var online = true
-    private var lastFailure: Date?
+    /// Per-engine cooldown timestamps: a server failure must not silence direct mode.
+    private var lastFailureByEngine: [Engine: Date] = [:]
     private var mode: ReadAloudMode = .edgeDirect
     private var voiceID = EdgeTTSVoice.nanami.neuralName
     private var serverBaseURL = ""
@@ -105,7 +110,8 @@ final class SpeechService: NSObject, ObservableObject {
     // MARK: Network synthesis (chunked)
 
     private func speakOverNetwork(_ text: String, rate: Double, engine: Engine) {
-        if blockReason() != nil {
+        if let reason = blockReason(for: engine) {
+            noteFallbackReason(reason)
             speakWithSystemVoice(text, rate: rate)
             return
         }
@@ -128,11 +134,16 @@ final class SpeechService: NSObject, ObservableObject {
                 }
             } catch {
                 await MainActor.run {
-                    self.noteFailure()
+                    self.noteFailure(engine, reason: self.failureReason(engine, error))
                     self.speakWithSystemVoice(text, rate: rate)
                 }
             }
         }
+    }
+
+    private func failureReason(_ engine: Engine, _ error: Error) -> String {
+        let detail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        return "\(engineLabel(engine))失败：\(detail)；已改用系统语音"
     }
 
     private func fetchAudio(_ text: String, voice: String, percent: Int, engine: Engine) async throws -> URL {
@@ -141,25 +152,46 @@ final class SpeechService: NSObject, ObservableObject {
         switch engine {
         case .server:
             let client = ServerTTSService(baseURL: serverBaseURL)
-            let data = try await client.audio(text: text, voiceID: voice, ratePercent: percent, timeout: 15)
-            return try cache.store(data, forKey: key)
+            do {
+                let data = try await client.audio(text: text, voiceID: voice, ratePercent: percent, timeout: 15)
+                return try cache.store(data, forKey: key)
+            } catch {
+                // One retry after about a second, then fall back for this utterance.
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                let data = try await client.audio(text: text, voiceID: voice, ratePercent: percent, timeout: 15)
+                return try cache.store(data, forKey: key)
+            }
         case .edge:
             return try await edge.audio(for: text, voiceID: voice, ratePercent: percent, timeout: 15)
         }
     }
 
-    /// Offline or within the cooldown window → skip the network entirely.
-    private func blockReason() -> String? {
+    /// Offline or within this engine's cooldown → skip the network entirely.
+    private func blockReason(for engine: Engine) -> String? {
         guard !voiceID.isEmpty else { return "没有可用的语音 ID" }
         guard online else { return "当前离线" }
-        if let lastFailure, Date().timeIntervalSince(lastFailure) < EdgeTTSRouter.failureCooldown {
-            return "刚刚失败过，临时改用系统语音"
+        if let lastFailure = lastFailureByEngine[engine],
+           Date().timeIntervalSince(lastFailure) < EdgeTTSRouter.failureCooldown {
+            let remaining = Int(EdgeTTSRouter.failureCooldown - Date().timeIntervalSince(lastFailure))
+            return "\(engineLabel(engine))刚刚失败过，冷却中（约 \(max(remaining, 1)) 秒）；现用系统语音"
         }
         return nil
     }
 
-    private func noteFailure() {
-        lastFailure = Date()
+    private func engineLabel(_ engine: Engine) -> String {
+        engine == .server ? "服务器合成" : "Edge 直连"
+    }
+
+    /// Records the failure, remembers the reason, and surfaces it (toast + settings).
+    private func noteFailure(_ engine: Engine, reason: String) {
+        lastFailureByEngine[engine] = Date()
+        lastFailureReason = reason
+        onFallback?(reason)
+    }
+
+    private func noteFallbackReason(_ reason: String) {
+        lastFailureReason = reason
+        onFallback?(reason)
     }
 
     // MARK: Playback queue
@@ -185,7 +217,7 @@ final class SpeechService: NSObject, ObservableObject {
             lastEngine = engine
             isSpeaking = true
         } catch {
-            noteFailure()
+            noteFailure(engine == "server" ? .server : .edge, reason: "播放失败：\(error.localizedDescription)；已改用系统语音")
             playQueue.removeAll()
             speakWithSystemVoice(fallbackText, rate: rate)
         }
@@ -243,7 +275,9 @@ extension SpeechService: AVAudioPlayerDelegate {
             self.player = nil
             self.playQueue.removeAll()
             self.isSpeaking = false
-            self.lastFailure = Date()
+            self.lastFailureByEngine[self.queueEngine == "server" ? .server : .edge] = Date()
+            self.lastFailureReason = "播放失败：音频无法解码；已改用系统语音"
+            self.onFallback?(self.lastFailureReason ?? "")
         }
     }
 }

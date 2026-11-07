@@ -319,8 +319,10 @@ enum EdgeTTSDecision: Equatable {
 
 enum EdgeTTSRouter {
     /// Cooldown after a failed attempt, so studying never waits on a broken
-    /// network round-trip over and over.
-    static let failureCooldown: Double = 600
+    /// network round-trip over and over. Tracked per engine by the caller, so a
+    /// server failure cools only the server path and a direct failure only the
+    /// direct path.
+    static let failureCooldown: Double = 60
 
     static func decide(
         preferEdge: Bool,

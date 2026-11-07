@@ -14,6 +14,10 @@ struct FeedView: View {
     @State private var lookup: LookupRequest?
     @State private var infoClip: Clip?
     @State private var showFilters = false
+    @State private var safeAreaBottom: CGFloat = 0
+
+    /// Standard system tab bar height; the capsule sits above it plus the safe area.
+    private let tabBarHeight: CGFloat = 49
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -57,6 +61,13 @@ struct FeedView: View {
         .task {
             if feed.isEmpty { reload() }
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { safeAreaBottom = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, value in safeAreaBottom = value }
+            }
+        )
         .sheet(item: $lookup) { request in
             WordLookupSheet(
                 token: request.token,
@@ -102,7 +113,7 @@ struct FeedView: View {
             hint: "调整难度与兴趣标签，重新推荐片段"
         )
         .padding(.leading, 16)
-        .padding(.bottom, 132)
+        .padding(.bottom, safeAreaBottom + tabBarHeight + 8)
     }
 
     private func reload() {

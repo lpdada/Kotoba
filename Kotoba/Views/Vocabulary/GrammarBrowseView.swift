@@ -144,7 +144,7 @@ struct GrammarBrowseView: View {
                         .font(Theme.font(size: 10))
                         .foregroundStyle(Theme.secondaryText)
                 }
-                Text(entry.meaningEN)
+                Text(entry.displayMeaning)
                     .font(Theme.font(size: 11))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
@@ -158,7 +158,7 @@ struct GrammarBrowseView: View {
                         app.grammar.status(for: entry) == .learned ? Theme.jade : Theme.amber
                     )
             }
-            Text("EN")
+            Text(entry.meaningZH?.isEmpty == false ? "中" : "EN")
                 .font(Theme.font(size: 9, weight: .semibold, design: .rounded))
                 .foregroundStyle(Theme.secondaryText)
                 .padding(.horizontal, 5)
@@ -176,7 +176,7 @@ struct GrammarBrowseView: View {
     private func rowLabel(_ entry: GrammarEntry) -> String {
         let level = entry.level?.label ?? "未分级"
         let romaji = entry.romaji.map { "，罗马字 \($0)" } ?? ""
-        return "\(entry.pattern)\(romaji)，\(level)，英文释义 \(entry.meaningEN)"
+        return "\(entry.pattern)\(romaji)，\(level)，释义 \(entry.displayMeaning)"
     }
 }
 
@@ -189,6 +189,8 @@ struct GrammarDetailSheet: View {
 
     /// The entry on screen; tapping a related row swaps it without stacking sheets.
     @State private var current: GrammarEntry?
+    /// English stays available, just folded away by default.
+    @AppStorage("grammar.showEnglish") private var showEnglish = true
 
     private var shown: GrammarEntry { current ?? entry }
 
@@ -221,7 +223,7 @@ struct GrammarDetailSheet: View {
                     headerCard
                     statusCard
                     if !shown.formation.isEmpty { formationCard }
-                    if let notes = shown.notesEN, !notes.isEmpty { notesCard(notes) }
+                    if let notes = shown.displayNotes, !notes.isEmpty { notesCard(notes) }
                     if !shown.examples.isEmpty { examplesCard }
                     if !related.isEmpty { relatedCard }
                     attributionCard
@@ -264,12 +266,27 @@ struct GrammarDetailSheet: View {
                 .buttonStyle(.plain)
                 .a11yButton("朗读句型", hint: "用当前语音读出这个句型")
             }
-            Text(shown.meaningEN)
+            Text(shown.displayMeaning)
                 .font(Theme.font(size: 14))
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+            if showEnglish, shown.meaningZH?.isEmpty == false {
+                Text(shown.meaningEN)
+                    .font(Theme.font(size: 11))
+                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 6) {
-                TagLabel(text: "英文原文", tint: Theme.secondaryText)
+                TagLabel(text: shown.meaningZH?.isEmpty == false ? "中文" : "英文原文", tint: Theme.secondaryText)
+                if shown.meaningZH?.isEmpty == false {
+                    Button(showEnglish ? "隐藏英文" : "显示英文") {
+                        showEnglish.toggle()
+                    }
+                    .buttonStyle(.plain)
+                    .font(Theme.font(size: 10))
+                    .foregroundStyle(Theme.accent)
+                    .a11yButton(showEnglish ? "隐藏英文原文" : "显示英文原文")
+                }
                 if !shown.zhStatus.isEmpty {
                     TagLabel(text: shown.zhStatus, tint: Theme.hairline)
                 }
@@ -325,7 +342,7 @@ struct GrammarDetailSheet: View {
 
     private func notesCard(_ notes: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(title: "说明（英文原文）")
+            SectionHeader(title: shown.notesZH?.isEmpty == false ? "说明" : "说明（英文原文）")
             Text(notes)
                 .font(Theme.font(size: 12))
                 .foregroundStyle(Theme.secondaryText)
@@ -350,9 +367,15 @@ struct GrammarDetailSheet: View {
                             .foregroundStyle(Theme.secondaryText.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !example.en.isEmpty {
+                    if let zh = example.zh, !zh.isEmpty {
+                        Text(zh)
+                            .font(Theme.font(size: 12))
+                            .foregroundStyle(Theme.ink.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if showEnglish, !example.en.isEmpty {
                         Text(example.en)
-                            .font(Theme.font(size: 11))
+                            .font(Theme.font(size: 10))
                             .foregroundStyle(Theme.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }

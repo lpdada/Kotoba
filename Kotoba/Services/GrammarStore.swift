@@ -133,6 +133,17 @@ final class GrammarStore {
             .map(\.entry)
     }
 
+    /// How much of the set carries hand-checked Chinese.
+    var chineseCoverage: (meaning: Int, notes: Int, examples: Int, examplesTotal: Int, checked: Int, partial: Int, total: Int) {
+        let meaning = entries.filter { $0.meaningZH?.isEmpty == false }.count
+        let notes = entries.filter { $0.notesZH?.isEmpty == false }.count
+        let examples = entries.reduce(0) { $0 + $1.examples.filter(\.hasChinese).count }
+        let examplesTotal = entries.reduce(0) { $0 + $1.examples.count }
+        let checked = entries.filter { $0.zhStatus == "checked" }.count
+        let partial = entries.filter { $0.zhStatus == "partial" }.count
+        return (meaning, notes, examples, examplesTotal, checked, partial, entries.count)
+    }
+
     /// English is the only reliable language here, so the UI must label it.
     static func meaningLabel(for entry: GrammarEntry) -> String {
         entry.hasCheckedChinese ? "中文" : "英文原文"
